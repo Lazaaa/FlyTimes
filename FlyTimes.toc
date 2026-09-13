@@ -1,0 +1,14 @@
+## Interface: 11200
+## Title: FlyTimes
+## Notes: Shows a progress bar with remaining flight time
+## Author: Kharon
+## Version: 1.0.0
+## SavedVariables: FlyTimesDB
+
+Locale.lua
+BarStyles.lua
+FlightData_horde.lua
+FlightData_alliance.lua
+Core.lua
+Minimap.lua
+Options.lua
