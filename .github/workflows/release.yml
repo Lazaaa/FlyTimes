@@ -29,7 +29,7 @@ jobs:
       - name: ZIP csomag elkészítése
         run: |
           git archive HEAD --format=zip --output=source.zip
-          mkdir -p temp/ArchiTotem
+          mkdir -p temp/FlyTimes
           unzip source.zip -d temp/FlyTimes
           cd temp
           zip -r ../FlyTimes.zip FlyTimes/
