@@ -2,7 +2,7 @@
 ## Title: FlyTimes
 ## Notes: Shows a progress bar with remaining flight time
 ## Author: Kharon
-## Version: 1.0.0
+## Version: 1.0.2
 ## SavedVariables: FlyTimesDB
 
 Locale.lua
