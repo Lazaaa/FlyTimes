@@ -61,6 +61,7 @@ The in-game settings panel has two tabs:
 - `/ft style <name>` – Change bar style
 - `/ft style list` – Show all available styles
 - `/ft debug` – Show taxi node debug info
+- `/ft route` – Flying route
 
 ### Moving the Bar
 Left-click and drag the timer bar to move it anywhere on your screen. Your position will be saved.
