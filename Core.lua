@@ -2,6 +2,7 @@
 -- Shows a progress bar during flight paths
 -- Emberveil (1.12.1) compatible
 -- With auto-learning flight time measurement
+-- + Multi-hop route support via FlightRoutes.lua
 
 FlyTimes = FlyTimes or {}
 local FTT = FlyTimes
@@ -116,6 +117,121 @@ local function SaveMeasurement(fromName, toName, seconds)
 end
 
 -- =====================================================
+--  FLIGHT ROUTES HELPER (multi-hop support)
+-- =====================================================
+
+-- Returns the intermediate stops for a given route, or nil if not found
+function FTT:GetRouteStops(fromName, toName)
+    if not self.FlightRoutes then return nil end
+    if not self.FlightRoutes["CLASSIC"] then return nil end
+
+    local faction = GetPlayerFaction()
+    local factionRoutes = self.FlightRoutes["CLASSIC"][faction]
+    if not factionRoutes then return nil end
+
+    -- Try exact match
+    if factionRoutes[fromName] and factionRoutes[fromName][toName] then
+        return factionRoutes[fromName][toName]
+    end
+
+    -- Try fuzzy match on the from name (strip zone)
+    local fromShort = string.gsub(fromName, "(%,.*)", "")
+    local toShort = string.gsub(toName, "(%,.*)", "")
+
+    for k, v in pairs(factionRoutes) do
+        local kShort = string.gsub(k, "(%,.*)", "")
+        if kShort == fromShort then
+            -- Try to find the to entry (exact or fuzzy)
+            for toK, toV in pairs(v) do
+                local toKShort = string.gsub(toK, "(%,.*)", "")
+                if toK == toName or toKShort == toShort then
+                    return toV
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+-- Formats the route stops into a readable string
+function FTT:FormatRouteStops(fromName, toName)
+    local stops = self:GetRouteStops(fromName, toName)
+    if not stops or #stops == 0 then
+        return nil
+    end
+
+    local parts = {}
+    for _, stop in ipairs(stops) do
+        table.insert(parts, string.gsub(stop, "(%,.*)", ""))
+    end
+
+    return table.concat(parts, " > ")
+end
+
+-- Multi-hop flight time approximation:
+-- sums up the leg times if the direct lookup fails
+function FTT:GetMultiHopFlightTime(fromName, toName)
+    local stops = self:GetRouteStops(fromName, toName)
+    if not stops or #stops == 0 then return nil end
+
+    local version = GetGameVersion()
+    local faction = GetPlayerFaction()
+    if not self.FlightDB or not self.FlightDB[version] then return nil end
+    local db = self.FlightDB[version][faction]
+    if not db then return nil end
+
+    -- Build the full path: from -> stop1 -> stop2 -> ... -> to
+    local path = { fromName }
+    for _, s in ipairs(stops) do
+        table.insert(path, s)
+    end
+    table.insert(path, toName)
+
+    -- Helper: find a leg time using exact, reverse, or fuzzy matching
+    local function findLeg(from, to)
+        -- Try exact
+        if db[from] and db[from][to] then
+            return db[from][to]
+        end
+        -- Try reverse
+        if db[to] and db[to][from] then
+            return db[to][from]
+        end
+        -- Try fuzzy
+        local fromShort = string.gsub(from, "(%,.*)", "")
+        local toShort = string.gsub(to, "(%,.*)", "")
+        for k, v in pairs(db) do
+            if string.gsub(k, "(%,.*)", "") == fromShort then
+                for k2, v2 in pairs(v) do
+                    if string.gsub(k2, "(%,.*)", "") == toShort then
+                        return v2
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    -- Sum up the leg times
+    local total = 0
+    local legsFound = 0
+    for i = 1, #path - 1 do
+        local t = findLeg(path[i], path[i + 1])
+        if t then
+            total = total + t
+            legsFound = legsFound + 1
+        end
+    end
+
+    if legsFound == #path - 1 then
+        return total
+    end
+
+    return nil
+end
+
+-- =====================================================
 --  FLIGHT TIME LOOKUP (measurements first, then static DB)
 -- =====================================================
 
@@ -149,7 +265,13 @@ function FTT:GetFlightTime(fromName, toName)
         return versionDB[faction][toName][fromName]
     end
 
-    -- 2c. Fuzzy match (partial name)
+    -- 2c. Multi-hop approximation via FlightRoutes
+    local multiHop = self:GetMultiHopFlightTime(fromName, toName)
+    if multiHop then
+        return multiHop
+    end
+
+    -- 2d. Fuzzy match (partial name)
     local fromKey, toKey
     for k, v in pairs(versionDB[faction]) do
         if not fromKey and string.find(k, fromName, 1, true) then
@@ -245,6 +367,9 @@ timerFrame.bar.spark:SetBlendMode("ADD")
 timerFrame.bar.spark:SetWidth(20)
 timerFrame.bar.spark:SetHeight(timerFrame.bar:GetHeight() * 2.5)
 
+-- Expose for Options.lua
+FTT.timerFrame = timerFrame
+
 -- =====================================================
 --  TIME FORMATTER
 -- =====================================================
@@ -291,10 +416,24 @@ function FTT:StartFlightTimer(duration, fromNode, toNode)
     if FlyTimesDB.showEstimate then
         local source = measured and (L["FLIGHT_TIME_SOURCE_MEASURED"] or "measured")
                               or (L["FLIGHT_TIME_SOURCE_DB"] or "database")
+
+        -- Build the route string (with intermediate stops if any)
+        local stopsStr = FTT:FormatRouteStops(fromNode, toNode)
+        local routeDisplay = string.format("%s > %s", fromNode or "?", toNode or "?")
+        if stopsStr then
+            routeDisplay = string.format("%s > %s > %s",
+                fromNode or "?",
+                stopsStr,
+                toNode or "?")
+        end
+
         DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff00ff00%s:|r %s (|cff808080%s|r)",
             L["ADDON_NAME"] or "FlyTimes",
             string.format(L["FLIGHT_TIME"] or "Estimated flight time: %s", FormatTime(duration)),
             source))
+
+        -- Show the route with stops (if any)
+        DEFAULT_CHAT_FRAME:AddMessage(string.format("  |cff808080%s|r", routeDisplay))
     end
 end
 
@@ -561,6 +700,19 @@ if TaxiNodeOnButtonEnter then
                 local label = measured and (L["TOOLTIP_FLIGHT_TIME_MEASURED"] or "Flight time (measured):")
                                       or (L["TOOLTIP_FLIGHT_TIME"] or "Flight time:")
                 GameTooltip:AddLine("|cffFFD700" .. label .. "|r " .. FormatTime(duration), 1, 1, 1)
+
+                -- Show intermediate stops if any
+                local stops = FTT:GetRouteStops(fromName, toName)
+                if stops and #stops > 0 then
+                    local parts = {}
+                    for _, stop in ipairs(stops) do
+                        table.insert(parts, string.gsub(stop, "(%,.*)", ""))
+                    end
+                    local stopsLine = table.concat(parts, " > ")
+                    GameTooltip:AddLine("|cff808080" ..
+                        (L["TOOLTIP_STOPS"] or "Stops:") .. "|r " .. stopsLine, 1, 1, 1)
+                end
+
                 GameTooltip:Show()
             end
         end
@@ -606,6 +758,62 @@ SlashCmdList["FLYTIMES"] = function(msg)
             DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00" .. (L["ADDON_NAME"] or "FlyTimes") .. "|r " .. (L["STYLE_USAGE"] or "Usage: /ft style <name> or /ft style list"))
             return
         end
+    end
+
+    -- Route info subcommand
+        -- Route info subcommand
+    if msg:match("^route") then
+        local routeName = msg:match("^route%s+(.+)")
+
+        if not routeName then
+            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00" .. (L["ADDON_NAME"] or "FlyTimes") .. "|r " ..
+                (L["ROUTE_USAGE"] or "Usage: /ft route <partial name>"))
+            return
+        end
+
+        -- Normalize search string (lowercase)
+        routeName = string.lower(routeName)
+
+        -- Try to find matching from/to pairs
+        local found = 0
+        local faction = GetPlayerFaction()
+
+        if FTT.FlightRoutes and FTT.FlightRoutes["CLASSIC"] and FTT.FlightRoutes["CLASSIC"][faction] then
+            -- Print header first (only if we find at least one match)
+            local headerPrinted = false
+
+            for fromK, v in pairs(FTT.FlightRoutes["CLASSIC"][faction]) do
+                for toK, stops in pairs(v) do
+                    local combined = fromK .. " > " .. toK
+                    if string.find(string.lower(combined), routeName, 1, true) then
+                        if not headerPrinted then
+                            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00" .. (L["ADDON_NAME"] or "FlyTimes") .. ":|r " ..
+                                (L["ROUTE_HEADER"] or "Matching routes:"))
+                            headerPrinted = true
+                        end
+
+                        local parts = {}
+                        for _, s in ipairs(stops) do
+                            table.insert(parts, s)
+                        end
+
+                        DEFAULT_CHAT_FRAME:AddMessage(string.format("  |cffcceeff%s|r |cff808080%s|r |cffffd700%s|r",
+                            combined,
+                            L["ROUTE_VIA"] or "via",
+                            table.concat(parts, " > ")))
+                        found = found + 1
+                    end
+                end
+            end
+        end
+
+        if found == 0 then
+            DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff00ff00%s:|r " ..
+                (L["ROUTE_NO_MATCH"] or "No matching route for '%s'"),
+                L["ADDON_NAME"] or "FlyTimes", routeName))
+        end
+
+        return
     end
 
     if msg == "toggle" then
@@ -677,6 +885,7 @@ SlashCmdList["FLYTIMES"] = function(msg)
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_RESET"] or "/ft reset - Reset bar position"))
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_STYLE"] or "/ft style <name> - Change bar style"))
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_STYLE_LIST"] or "/ft style list - Show all available styles"))
+        DEFAULT_CHAT_FRAME:AddMessage("  /ft route <partial> - Show route with stops")
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_DEBUG"] or "/ft debug - Show taxi debug info"))
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_HELP"] or "Drag the bar to move it"))
     end
