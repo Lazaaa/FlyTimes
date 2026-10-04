@@ -1,7 +1,7 @@
 -- FlyTimes Core
 -- Shows a progress bar during flight paths
 -- Emberveil (1.12.1) compatible
--- With auto-learning flight time measurement
+-- With auto-learning flight time measurement (UnitOnTaxi-based polling)
 -- + Multi-hop route support via FlightRoutes.lua
 
 FlyTimes = FlyTimes or {}
@@ -44,11 +44,13 @@ local destNode = nil
 local updateTimer = 0
 local lastStartTime = 0
 
--- Measurement tracking
+-- Measurement tracking (robusztus, UnitOnTaxi-alapú)
 local measureStartTime = nil
 local measureFrom = nil
 local measureTo = nil
 local measureActive = false
+local measurePending = false     -- van függőben lévő mérés (TakeTaxiNode hívta)
+local measureTimeout = 0
 
 -- =====================================================
 --  VERSION & FACTION
@@ -163,7 +165,7 @@ function FTT:FormatRouteStops(fromName, toName)
 
     local parts = {}
     for _, stop in ipairs(stops) do
-        table.insert(parts, string.gsub(stop, "(%,.*)", ""))
+        table.insert(parts, (string.gsub(stop, "(%,.*)", "")))
     end
 
     return table.concat(parts, " > ")
@@ -447,7 +449,7 @@ function FTT:StopFlightTimer()
 end
 
 -- =====================================================
---  ONUPDATE
+--  ONUPDATE (timer bar)
 -- =====================================================
 
 timerFrame:SetScript("OnUpdate", function()
@@ -481,6 +483,113 @@ timerFrame:SetScript("OnUpdate", function()
     local width = this.bar:GetWidth()
     this.bar.spark:SetPoint("CENTER", this.bar, "LEFT", width * progress, 0)
 end)
+
+-- =====================================================
+--  MEASUREMENT POLLING FRAME
+-- =====================================================
+-- Robusztus mérés: a UnitOnTaxi("player") állapotát figyeli
+-- NEM függ a PLAYER_CONTROL_LOST/GAINED eseményektől
+
+local measureFrame = CreateFrame("Frame")
+measureFrame:Hide()
+measureFrame.elapsed = 0
+
+measureFrame:SetScript("OnUpdate", function()
+    local elapsed = arg1 or 0
+    this.elapsed = this.elapsed + elapsed
+
+    -- Only poll every 0.25 seconds to save CPU
+    if this.elapsed < 0.25 then return end
+    this.elapsed = 0
+
+    local onTaxi = UnitOnTaxi and UnitOnTaxi("player") or false
+
+    -- Van függőben lévő mérés, de még nem kezdtük el
+    if measurePending and not measureActive and measureFrom and measureTo then
+        if onTaxi then
+            -- A taxi elindult → mérés indítása
+            measureActive = true
+            measureStartTime = GetTime()
+            measureTimeout = 0
+            if timerFrame:IsShown() then
+                timerFrame.learningLabel:SetText("|cffffcc00" .. (L["LEARNING_LABEL"] or "[measuring...]") .. "|r")
+                timerFrame.learningLabel:Show()
+            end
+        else
+            -- Még nem indult el, de várunk rá (max 5 sec)
+            measureTimeout = measureTimeout + 0.25
+            if measureTimeout > 5 then
+                -- Nem indult el 5 sec alatt → töröljük
+                measurePending = false
+                measureFrom = nil
+                measureTo = nil
+                measureTimeout = 0
+            end
+        end
+    end
+
+    -- Mérés aktív, figyeljük a taxi állapotát
+    if measureActive then
+        measureTimeout = measureTimeout + 0.25
+
+        if not onTaxi then
+            -- A taxi véget ért → mérés mentése
+            local duration = GetTime() - (measureStartTime or GetTime())
+            local saved, entry = SaveMeasurement(measureFrom, measureTo, duration)
+
+            if saved and entry then
+                local avg = entry.total / entry.count
+                DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                    "|cff00ff00%s:|r " .. (L["MEASURED_SAVED"] or "Measured %s -> %s: %s (%d db, avg: %s)"),
+                    L["ADDON_NAME"] or "FlyTimes",
+                    measureFrom, measureTo,
+                    FormatTime(duration), entry.count, FormatTime(avg)))
+            end
+
+            -- Reset
+            measureActive = false
+            measurePending = false
+            measureStartTime = nil
+            measureFrom = nil
+            measureTo = nil
+            measureTimeout = 0
+
+            if timerFrame.learningLabel then
+                timerFrame.learningLabel:Hide()
+            end
+        elseif measureTimeout > 1800 then
+            -- Biztonsági timeout: 30 perc után leállítjuk
+            measureActive = false
+            measurePending = false
+            measureStartTime = nil
+            measureFrom = nil
+            measureTo = nil
+            measureTimeout = 0
+        end
+    end
+
+    -- Ha nincs semmi tennivaló, kapcsoljuk ki a frame-et
+    if not measurePending and not measureActive then
+        this:Hide()
+    end
+end)
+
+-- Segédfüggvény: mérés indítása TakeTaxiNode-ból
+function FTT:StartMeasurement(fromName, toName)
+    if not FlyTimesDB or not FlyTimesDB.learningEnabled then return end
+    if not fromName or not toName then return end
+
+    measureFrom = fromName
+    measureTo = toName
+    measurePending = true
+    measureActive = false
+    measureStartTime = nil
+    measureTimeout = 0
+
+    -- Indítsuk el a polling frame-et
+    measureFrame.elapsed = 0
+    measureFrame:Show()
+end
 
 -- =====================================================
 --  HELPER: CURRENT TAXI NODE NAME
@@ -523,12 +632,7 @@ function TakeTaxiNode(destinationSlot)
         end
 
         -- Start measurement if auto-learning is enabled
-        if FlyTimesDB.learningEnabled then
-            measureFrom = fromName
-            measureTo = destName
-            measureStartTime = nil
-            measureActive = false
-        end
+        FTT:StartMeasurement(fromName, destName)
     end
 
     return result
@@ -555,12 +659,7 @@ local function HookTaxiButton(btn)
                     FTT:StartFlightTimer(duration, fromName, destName)
                 end
 
-                if FlyTimesDB.learningEnabled then
-                    measureFrom = fromName
-                    measureTo = destName
-                    measureStartTime = nil
-                    measureActive = false
-                end
+                FTT:StartMeasurement(fromName, destName)
             end
         end
         if originalOnClick then
@@ -628,50 +727,15 @@ eventFrame:SetScript("OnEvent", function()
         end
 
     elseif event == "PLAYER_CONTROL_LOST" then
-        -- Flight is starting: begin measurement after a short delay
-        if measureFrom and measureTo and FlyTimesDB.learningEnabled then
-            local delayFrame = CreateFrame("Frame")
-            local delayTime = 0
-            delayFrame:SetScript("OnUpdate", function()
-                delayTime = delayTime + (arg1 or 0)
-                if delayTime >= 0.3 then
-                    delayFrame:SetScript("OnUpdate", nil)
-                    if UnitOnTaxi("player") then
-                        measureStartTime = GetTime()
-                        measureActive = true
-                        -- Update the learning indicator
-                        if timerFrame:IsShown() then
-                            timerFrame.learningLabel:SetText("|cffffcc00" .. (L["LEARNING_LABEL"] or "[measuring...]") .. "|r")
-                            timerFrame.learningLabel:Show()
-                        end
-                    end
-                end
-            end)
-        end
+        -- Nem csinálunk semmit – a measureFrame OnUpdate figyeli a UnitOnTaxi-t
+        -- (Ez a régi módszer nem volt megbízható az Emberveilen)
 
     elseif event == "PLAYER_CONTROL_GAINED" then
-        -- Flight has ended: stop timer and save measurement
+        -- Csak a timer leállítása
         if flightStartTime then
             FTT:StopFlightTimer()
         end
-
-        if measureActive and measureStartTime and measureFrom and measureTo then
-            local elapsed = GetTime() - measureStartTime
-            local saved, entry = SaveMeasurement(measureFrom, measureTo, elapsed)
-
-            if saved and entry then
-                local avg = entry.total / entry.count
-                DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff00ff00%s:|r " .. (L["MEASURED_SAVED"] or "Measured %s -> %s: %s (%d db, avg: %s)"),
-                    L["ADDON_NAME"] or "FlyTimes",
-                    measureFrom, measureTo, FormatTime(elapsed), entry.count, FormatTime(avg)))
-            end
-        end
-
-        -- Reset measurement state
-        measureActive = false
-        measureStartTime = nil
-        measureFrom = nil
-        measureTo = nil
+        -- A mérés mentését a measureFrame OnUpdate végzi, amikor a UnitOnTaxi false lesz
     end
 end)
 
@@ -706,7 +770,7 @@ if TaxiNodeOnButtonEnter then
                 if stops and #stops > 0 then
                     local parts = {}
                     for _, stop in ipairs(stops) do
-                        table.insert(parts, string.gsub(stop, "(%,.*)", ""))
+                        table.insert(parts, (string.gsub(stop, "(%,.*)", "")))
                     end
                     local stopsLine = table.concat(parts, " > ")
                     GameTooltip:AddLine("|cff808080" ..
@@ -761,7 +825,6 @@ SlashCmdList["FLYTIMES"] = function(msg)
     end
 
     -- Route info subcommand
-        -- Route info subcommand
     if msg:match("^route") then
         local routeName = msg:match("^route%s+(.+)")
 
@@ -779,7 +842,6 @@ SlashCmdList["FLYTIMES"] = function(msg)
         local faction = GetPlayerFaction()
 
         if FTT.FlightRoutes and FTT.FlightRoutes["CLASSIC"] and FTT.FlightRoutes["CLASSIC"][faction] then
-            -- Print header first (only if we find at least one match)
             local headerPrinted = false
 
             for fromK, v in pairs(FTT.FlightRoutes["CLASSIC"][faction]) do
@@ -873,6 +935,7 @@ SlashCmdList["FLYTIMES"] = function(msg)
         DEFAULT_CHAT_FRAME:AddMessage(string.format(L["DEBUG_ON_TAXI"] or "  UnitOnTaxi: %s", tostring(UnitOnTaxi("player"))))
         DEFAULT_CHAT_FRAME:AddMessage(string.format(L["DEBUG_LEARNING"] or "  Learning: %s", tostring(FlyTimesDB.learningEnabled)))
         DEFAULT_CHAT_FRAME:AddMessage(string.format(L["DEBUG_MEASURED_COUNT"] or "  Measured routes: %d", measuredCount))
+        DEFAULT_CHAT_FRAME:AddMessage(string.format("  Pending: %s, Active: %s", tostring(measurePending), tostring(measureActive)))
 
     else
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00" .. (L["ADDON_NAME"] or "FlyTimes") .. "|r " .. (L["CMD_HEADER"] or "commands:"))
