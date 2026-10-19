@@ -1,7 +1,7 @@
 -- FlightRoutes.lua
--- Köztes megállók (multi-hop útvonalak) az 1.12.1-es verzióhoz
--- Forrás: Defaults.lua (DBC TaxiPathNode adatok) + Emberveil-specifikus korrekciók
--- Formátum: [kezdőpont][célpont] = { köztes megállók listája }
+-- Intermediate stops (multi-hop routes) for version 1.12.1
+-- Source: Defaults.lua (DBC TaxiPathNode data) + Emberveil-specific corrections + Wowx5.ru data
+-- Format: [start_point][destination] = { list_of_intermediate_stops }
 
 FlyTimes = FlyTimes or {}
 FlyTimes.FlightRoutes = FlyTimes.FlightRoutes or {}
@@ -15,27 +15,28 @@ FlyTimes.FlightRoutes["CLASSIC"]["Horde"] = {
     ["Marshal's Refuge, Un'Goro Crater"] = {
         ["Everlook, Winterspring"] = {"Gadgetzan, Tanaris", "Freewind Post, Thousand Needles", "Crossroads, The Barrens", "Valormok, Azshara"},
         ["Camp Taurajo, The Barrens"] = {"Gadgetzan, Tanaris", "Freewind Post, Thousand Needles"},
-        ["Valormok, Azshara"] = {"Gadgetzan, Tanaris", "Freewind Post, Thousand Needles", "Crossroads, The Barrens"},
+        ["Valormok, Azshara"] = {"Gadgetzan, Tanaris", "Thunder Bluff, Mulgore"},
         ["Shadowprey Village, Desolace"] = {"Cenarion Hold, Silithus", "Camp Mojache, Feralas"},
-        ["Ratchet, The Barrens"] = {"Gadgetzan, Tanaris", "Freewind Post, Thousand Needles", "Crossroads, The Barrens"},
+        ["Ratchet, The Barrens"] = {"Gadgetzan, Tanaris", "Crossroads, The Barrens"},
         ["Splintertree Post, Ashenvale"] = {"Gadgetzan, Tanaris", "Freewind Post, Thousand Needles", "Crossroads, The Barrens"},
         ["Bloodvenom Post, Felwood"] = {"Gadgetzan, Tanaris", "Freewind Post, Thousand Needles", "Crossroads, The Barrens"},
         ["Sun Rock Retreat, Stonetalon Mountains"] = {"Gadgetzan, Tanaris", "Freewind Post, Thousand Needles", "Crossroads, The Barrens"},
         ["Nighthaven, Moonglade"] = {"Gadgetzan, Tanaris", "Freewind Post, Thousand Needles", "Crossroads, The Barrens", "Bloodvenom Post, Felwood"},
-        ["Orgrimmar, Durotar"] = {"Gadgetzan, Tanaris", "Freewind Post, Thousand Needles", "Crossroads, The Barrens"},
+        ["Orgrimmar, Durotar"] = {"Gadgetzan, Tanaris"},
         ["Crossroads, The Barrens"] = {"Gadgetzan, Tanaris", "Freewind Post, Thousand Needles"},
         ["Zoram'gar Outpost, Ashenvale"] = {"Gadgetzan, Tanaris", "Freewind Post, Thousand Needles", "Crossroads, The Barrens"},
     },
 
     ["Everlook, Winterspring"] = {
         ["Marshal's Refuge, Un'Goro Crater"] = {"Valormok, Azshara", "Crossroads, The Barrens", "Freewind Post, Thousand Needles", "Gadgetzan, Tanaris"},
-        ["Thunder Bluff, Mulgore"] = {"Valormok, Azshara", "Crossroads, The Barrens", "Camp Taurajo, The Barrens"},
+        ["Gadgetzan, Tanaris"] = {"Valormok, Azshara", "Orgrimmar, Durotar"},
+        ["Thunder Bluff, Mulgore"] = {"Valormok, Azshara"},
         ["Camp Taurajo, The Barrens"] = {"Valormok, Azshara", "Crossroads, The Barrens"},
-        ["Shadowprey Village, Desolace"] = {"Valormok, Azshara", "Crossroads, The Barrens", "Thunder Bluff, Mulgore"},
-        ["Ratchet, The Barrens"] = {"Valormok, Azshara", "Crossroads, The Barrens"},
+        ["Shadowprey Village, Desolace"] = {"Valormok, Azshara", "Thunder Bluff, Mulgore"},
+        ["Ratchet, The Barrens"] = {"Valormok, Azshara", "Orgrimmar, Durotar", "Crossroads, The Barrens"},
         ["Freewind Post, Thousand Needles"] = {"Valormok, Azshara", "Crossroads, The Barrens", "Camp Taurajo, The Barrens"},
-        ["Camp Mojache, Feralas"] = {"Valormok, Azshara", "Crossroads, The Barrens", "Thunder Bluff, Mulgore"},
-        ["Sun Rock Retreat, Stonetalon Mountains"] = {"Valormok, Azshara", "Crossroads, The Barrens"},
+        ["Camp Mojache, Feralas"] = {"Valormok, Azshara", "Thunder Bluff, Mulgore"},
+        ["Sun Rock Retreat, Stonetalon Mountains"] = {"Valormok, Azshara", "Thunder Bluff, Mulgore"},
         ["Brackenwall Village, Dustwallow Marsh"] = {"Valormok, Azshara", "Crossroads, The Barrens", "Camp Taurajo, The Barrens"},
         ["Zoram'gar Outpost, Ashenvale"] = {"Valormok, Azshara", "Splintertree Post, Ashenvale"},
     },
@@ -47,25 +48,33 @@ FlyTimes.FlightRoutes["CLASSIC"]["Horde"] = {
         ["Bloodvenom Post, Felwood"] = {"Freewind Post, Thousand Needles", "Crossroads, The Barrens", "Valormok, Azshara"},
         ["Sun Rock Retreat, Stonetalon Mountains"] = {"Freewind Post, Thousand Needles", "Crossroads, The Barrens", "Valormok, Azshara"},
         ["Nighthaven, Moonglade"] = {"Freewind Post, Thousand Needles", "Crossroads, The Barrens", "Valormok, Azshara"},
-        ["Orgrimmar, Durotar"] = {"Freewind Post, Thousand Needles", "Crossroads, The Barrens"},
+        ["Orgrimmar, Durotar"] = {},
         ["Brackenwall Village, Dustwallow Marsh"] = {"Freewind Post, Thousand Needles", "Camp Taurajo, The Barrens"},
         ["Zoram'gar Outpost, Ashenvale"] = {"Freewind Post, Thousand Needles", "Crossroads, The Barrens", "Valormok, Azshara"},
         ["Shadowprey Village, Desolace"] = {"Freewind Post, Thousand Needles", "Camp Taurajo, The Barrens", "Thunder Bluff, Mulgore"},
+        ["Valormok, Azshara"] = {"Thunder Bluff, Mulgore"},
+        ["Ratchet, The Barrens"] = {"Crossroads, The Barrens"},
     },
 
     ["Orgrimmar, Durotar"] = {
-        ["Marshal's Refuge, Un'Goro Crater"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles", "Gadgetzan, Tanaris"},
+        ["Marshal's Refuge, Un'Goro Crater"] = {"Gadgetzan, Tanaris"},
         ["Everlook, Winterspring"] = {"Valormok, Azshara"},
-        ["Thunder Bluff, Mulgore"] = {"Crossroads, The Barrens", "Camp Taurajo, The Barrens"},
-        ["Camp Mojache, Feralas"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles"},
-        ["Shadowprey Village, Desolace"] = {"Crossroads, The Barrens", "Thunder Bluff, Mulgore"},
-        ["Freewind Post, Thousand Needles"] = {"Crossroads, The Barrens", "Camp Taurajo, The Barrens"},
-        ["Gadgetzan, Tanaris"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles"},
-        ["Bloodvenom Post, Felwood"] = {"Splintertree Post, Ashenvale"},
-        ["Sun Rock Retreat, Stonetalon Mountains"] = {"Crossroads, The Barrens"},
+        ["Thunder Bluff, Mulgore"] = {},
+        ["Camp Mojache, Feralas"] = {"Thunder Bluff, Mulgore"},
+        ["Shadowprey Village, Desolace"] = {"Thunder Bluff, Mulgore"},
+        ["Freewind Post, Thousand Needles"] = {"Thunder Bluff, Mulgore"},
+        ["Gadgetzan, Tanaris"] = {},
+        ["Bloodvenom Post, Felwood"] = {},
+        ["Sun Rock Retreat, Stonetalon Mountains"] = {"Thunder Bluff, Mulgore"},
         ["Nighthaven, Moonglade"] = {"Splintertree Post, Ashenvale", "Bloodvenom Post, Felwood"},
-        ["Brackenwall Village, Dustwallow Marsh"] = {"Crossroads, The Barrens", "Camp Taurajo, The Barrens"},
-        ["Zoram'gar Outpost, Ashenvale"] = {"Splintertree Post, Ashenvale"},
+        ["Brackenwall Village, Dustwallow Marsh"] = {},
+        ["Zoram'gar Outpost, Ashenvale"] = {"Crossroads, The Barrens"},
+        ["Camp Taurajo, The Barrens"] = {"Thunder Bluff, Mulgore"},
+        ["Cenarion Hold, Silithus"] = {"Gadgetzan, Tanaris"},
+        ["Ratchet, The Barrens"] = {},
+        ["Splintertree Post, Ashenvale"] = {"Crossroads, The Barrens"},
+        ["Valormok, Azshara"] = {},
+        ["Light's Hope Chapel, Eastern Plaguelands"] = {"Undercity, Tirisfal"},
     },
 
     ["Crossroads, The Barrens"] = {
@@ -78,84 +87,112 @@ FlyTimes.FlightRoutes["CLASSIC"]["Horde"] = {
         ["Nighthaven, Moonglade"] = {"Bloodvenom Post, Felwood"},
         ["Brackenwall Village, Dustwallow Marsh"] = {"Camp Taurajo, The Barrens"},
         ["Zoram'gar Outpost, Ashenvale"] = {"Splintertree Post, Ashenvale"},
+        ["Valormok, Azshara"] = {},
     },
 
     ["Ratchet, The Barrens"] = {
-        ["Marshal's Refuge, Un'Goro Crater"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles", "Gadgetzan, Tanaris"},
-        ["Everlook, Winterspring"] = {"Crossroads, The Barrens", "Valormok, Azshara"},
-        ["Thunder Bluff, Mulgore"] = {"Crossroads, The Barrens", "Camp Taurajo, The Barrens"},
-        ["Camp Mojache, Feralas"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles"},
+        ["Everlook, Winterspring"] = {"Crossroads, The Barrens", "Orgrimmar, Durotar", "Valormok, Azshara"},
+        ["Bloodvenom Post, Felwood"] = {"Crossroads, The Barrens"},
+        ["Splintertree Post, Ashenvale"] = {"Crossroads, The Barrens"},
+        ["Zoram'gar Outpost, Ashenvale"] = {"Crossroads, The Barrens"},
+        ["Sun Rock Retreat, Stonetalon Mountains"] = {"Crossroads, The Barrens"},
+        ["Thunder Bluff, Mulgore"] = {"Crossroads, The Barrens"},
+        ["Camp Taurajo, The Barrens"] = {"Crossroads, The Barrens"},
+        ["Gadgetzan, Tanaris"] = {"Crossroads, The Barrens"},
+        ["Freewind Post, Thousand Needles"] = {"Crossroads, The Barrens"},
+        ["Marshal's Refuge, Un'Goro Crater"] = {"Crossroads, The Barrens", "Gadgetzan, Tanaris"},
+        ["Cenarion Hold, Silithus"] = {"Crossroads, The Barrens", "Gadgetzan, Tanaris"},
+        ["Camp Mojache, Feralas"] = {"Crossroads, The Barrens"},
         ["Shadowprey Village, Desolace"] = {"Crossroads, The Barrens", "Thunder Bluff, Mulgore"},
-        ["Gadgetzan, Tanaris"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles"},
+        ["Valormok, Azshara"] = {"Crossroads, The Barrens"},
         ["Nighthaven, Moonglade"] = {"Crossroads, The Barrens", "Bloodvenom Post, Felwood"},
-        ["Zoram'gar Outpost, Ashenvale"] = {"Crossroads, The Barrens", "Splintertree Post, Ashenvale"},
+        ["Orgrimmar, Durotar"] = {},
     },
 
     ["Splintertree Post, Ashenvale"] = {
         ["Marshal's Refuge, Un'Goro Crater"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles", "Gadgetzan, Tanaris"},
         ["Everlook, Winterspring"] = {"Valormok, Azshara"},
-        ["Thunder Bluff, Mulgore"] = {"Crossroads, The Barrens", "Camp Taurajo, The Barrens"},
-        ["Camp Mojache, Feralas"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles"},
-        ["Shadowprey Village, Desolace"] = {"Crossroads, The Barrens", "Thunder Bluff, Mulgore"},
+        ["Thunder Bluff, Mulgore"] = {"Sun Rock Retreat, Stonetalon Mountains"},
+        ["Camp Mojache, Feralas"] = {"Sun Rock Retreat, Stonetalon Mountains", "Freewind Post, Thousand Needles"},
+        ["Shadowprey Village, Desolace"] = {"Sun Rock Retreat, Stonetalon Mountains"},
         ["Gadgetzan, Tanaris"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles"},
         ["Nighthaven, Moonglade"] = {"Bloodvenom Post, Felwood"},
         ["Zoram'gar Outpost, Ashenvale"] = {"Valormok, Azshara"},
+        ["Valormok, Azshara"] = {},
+        ["Orgrimmar, Durotar"] = {"Crossroads, The Barrens"},
+        ["Ratchet, The Barrens"] = {"Crossroads, The Barrens"},
     },
 
     ["Valormok, Azshara"] = {
-        ["Marshal's Refuge, Un'Goro Crater"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles", "Gadgetzan, Tanaris"},
-        ["Thunder Bluff, Mulgore"] = {"Crossroads, The Barrens", "Camp Taurajo, The Barrens"},
-        ["Camp Mojache, Feralas"] = {"Crossroads, The Barrens", "Thunder Bluff, Mulgore"},
-        ["Shadowprey Village, Desolace"] = {"Crossroads, The Barrens", "Thunder Bluff, Mulgore"},
-        ["Gadgetzan, Tanaris"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles"},
-        ["Nighthaven, Moonglade"] = {"Everlook, Winterspring"},
+        ["Thunder Bluff, Mulgore"] = {},
+        ["Camp Taurajo, The Barrens"] = {"Thunder Bluff, Mulgore"},
+        ["Brackenwall Village, Dustwallow Marsh"] = {"Thunder Bluff, Mulgore", "Camp Taurajo, The Barrens"},
+        ["Freewind Post, Thousand Needles"] = {"Thunder Bluff, Mulgore"},
+        ["Cenarion Hold, Silithus"] = {"Thunder Bluff, Mulgore", "Gadgetzan, Tanaris"},
+        ["Shadowprey Village, Desolace"] = {"Thunder Bluff, Mulgore"},
+        ["Camp Mojache, Feralas"] = {"Thunder Bluff, Mulgore"},
+        ["Sun Rock Retreat, Stonetalon Mountains"] = {"Thunder Bluff, Mulgore"},
+        ["Ratchet, The Barrens"] = {"Crossroads, The Barrens"},
+        ["Marshal's Refuge, Un'Goro Crater"] = {"Thunder Bluff, Mulgore", "Gadgetzan, Tanaris"},
+        ["Orgrimmar, Durotar"] = {},
+        ["Crossroads, The Barrens"] = {},
+        ["Gadgetzan, Tanaris"] = {"Thunder Bluff, Mulgore"},
+        ["Everlook, Winterspring"] = {},
         ["Zoram'gar Outpost, Ashenvale"] = {"Splintertree Post, Ashenvale"},
+        ["Nighthaven, Moonglade"] = {"Everlook, Winterspring"},
     },
 
     ["Thunder Bluff, Mulgore"] = {
         ["Marshal's Refuge, Un'Goro Crater"] = {"Camp Taurajo, The Barrens", "Freewind Post, Thousand Needles", "Gadgetzan, Tanaris"},
-        ["Everlook, Winterspring"] = {"Camp Taurajo, The Barrens", "Crossroads, The Barrens", "Valormok, Azshara"},
+        ["Everlook, Winterspring"] = {"Valormok, Azshara"},
         ["Camp Mojache, Feralas"] = {"Freewind Post, Thousand Needles"},
         ["Gadgetzan, Tanaris"] = {"Camp Taurajo, The Barrens", "Freewind Post, Thousand Needles"},
-        ["Nighthaven, Moonglade"] = {"Camp Taurajo, The Barrens", "Crossroads, The Barrens", "Bloodvenom Post, Felwood"},
-        ["Zoram'gar Outpost, Ashenvale"] = {"Crossroads, The Barrens", "Splintertree Post, Ashenvale"},
+        ["Nighthaven, Moonglade"] = {"Valormok, Azshara", "Everlook, Winterspring"},
+        ["Bloodvenom Post, Felwood"] = {"Crossroads, The Barrens"},
+        ["Zoram'gar Outpost, Ashenvale"] = {"Sun Rock Retreat, Stonetalon Mountains", "Splintertree Post, Ashenvale"},
+        ["Cenarion Hold, Silithus"] = {"Camp Taurajo, The Barrens", "Freewind Post, Thousand Needles", "Gadgetzan, Tanaris", "Marshal's Refuge, Un'Goro Crater"},
+        ["Orgrimmar, Durotar"] = {},
+        ["Ratchet, The Barrens"] = {"Crossroads, The Barrens"},
+        ["Splintertree Post, Ashenvale"] = {"Sun Rock Retreat, Stonetalon Mountains"},
+        ["Valormok, Azshara"] = {},
     },
 
     ["Freewind Post, Thousand Needles"] = {
         ["Everlook, Winterspring"] = {"Camp Taurajo, The Barrens", "Crossroads, The Barrens", "Valormok, Azshara"},
         ["Nighthaven, Moonglade"] = {"Crossroads, The Barrens", "Bloodvenom Post, Felwood"},
         ["Zoram'gar Outpost, Ashenvale"] = {"Crossroads, The Barrens", "Splintertree Post, Ashenvale"},
+        ["Valormok, Azshara"] = {"Thunder Bluff, Mulgore"},
+        ["Orgrimmar, Durotar"] = {"Thunder Bluff, Mulgore"},
+        ["Ratchet, The Barrens"] = {"Crossroads, The Barrens"},
     },
 
     ["Camp Taurajo, The Barrens"] = {
         ["Everlook, Winterspring"] = {"Crossroads, The Barrens", "Valormok, Azshara"},
         ["Nighthaven, Moonglade"] = {"Crossroads, The Barrens", "Bloodvenom Post, Felwood"},
         ["Zoram'gar Outpost, Ashenvale"] = {"Crossroads, The Barrens", "Splintertree Post, Ashenvale"},
+        ["Valormok, Azshara"] = {"Thunder Bluff, Mulgore"},
+        ["Orgrimmar, Durotar"] = {"Thunder Bluff, Mulgore"},
+        ["Ratchet, The Barrens"] = {"Crossroads, The Barrens"},
     },
 
     ["Camp Mojache, Feralas"] = {
-        ["Everlook, Winterspring"] = {"Thunder Bluff, Mulgore", "Crossroads, The Barrens", "Valormok, Azshara"},
+        ["Everlook, Winterspring"] = {"Thunder Bluff, Mulgore", "Valormok, Azshara"},
         ["Nighthaven, Moonglade"] = {"Thunder Bluff, Mulgore", "Crossroads, The Barrens", "Bloodvenom Post, Felwood"},
+        ["Valormok, Azshara"] = {"Thunder Bluff, Mulgore"},
+        ["Orgrimmar, Durotar"] = {"Thunder Bluff, Mulgore"},
+        ["Ratchet, The Barrens"] = {"Crossroads, The Barrens"},
     },
 
-    -- ========================================================
-    -- EMBERVEIL-SPECIFIC: Shadowprey Village (Desolace)
-    -- A valós repülési útvonal Thunder Bluffon keresztül megy,
-    -- ezért a Gadgetzan és Dél-Kalimdor felé vezető utak hosszabbak.
-    -- ========================================================
     ["Shadowprey Village, Desolace"] = {
-        -- Dél-Kalimdor: Thunder Bluffon keresztül
         ["Gadgetzan, Tanaris"] = {"Thunder Bluff, Mulgore", "Camp Taurajo, The Barrens", "Freewind Post, Thousand Needles"},
         ["Freewind Post, Thousand Needles"] = {"Thunder Bluff, Mulgore", "Camp Taurajo, The Barrens"},
         ["Camp Taurajo, The Barrens"] = {"Thunder Bluff, Mulgore"},
         ["Marshal's Refuge, Un'Goro Crater"] = {"Thunder Bluff, Mulgore", "Camp Taurajo, The Barrens", "Freewind Post, Thousand Needles", "Gadgetzan, Tanaris"},
         ["Cenarion Hold, Silithus"] = {"Thunder Bluff, Mulgore", "Camp Taurajo, The Barrens", "Freewind Post, Thousand Needles", "Gadgetzan, Tanaris", "Marshal's Refuge, Un'Goro Crater"},
-
-        -- Észak-Kalimdor: Thunder Bluffon és Crossroads-on keresztül
         ["Thunder Bluff, Mulgore"] = {},
-        ["Orgrimmar, Durotar"] = {"Thunder Bluff, Mulgore", "Camp Taurajo, The Barrens", "Crossroads, The Barrens"},
+        ["Orgrimmar, Durotar"] = {"Thunder Bluff, Mulgore"},
         ["Crossroads, The Barrens"] = {"Thunder Bluff, Mulgore", "Camp Taurajo, The Barrens"},
-        ["Ratchet, The Barrens"] = {"Thunder Bluff, Mulgore", "Camp Taurajo, The Barrens", "Crossroads, The Barrens"},
+        ["Ratchet, The Barrens"] = {"Thunder Bluff, Mulgore", "Crossroads, The Barrens"},
         ["Brackenwall Village, Dustwallow Marsh"] = {"Thunder Bluff, Mulgore", "Camp Taurajo, The Barrens"},
         ["Splintertree Post, Ashenvale"] = {"Thunder Bluff, Mulgore", "Camp Taurajo, The Barrens", "Crossroads, The Barrens"},
         ["Sun Rock Retreat, Stonetalon Mountains"] = {"Thunder Bluff, Mulgore"},
@@ -163,11 +200,14 @@ FlyTimes.FlightRoutes["CLASSIC"]["Horde"] = {
         ["Everlook, Winterspring"] = {"Thunder Bluff, Mulgore", "Crossroads, The Barrens", "Valormok, Azshara"},
         ["Nighthaven, Moonglade"] = {"Thunder Bluff, Mulgore", "Crossroads, The Barrens", "Bloodvenom Post, Felwood"},
         ["Zoram'gar Outpost, Ashenvale"] = {"Thunder Bluff, Mulgore", "Crossroads, The Barrens", "Splintertree Post, Ashenvale"},
+        ["Valormok, Azshara"] = {"Thunder Bluff, Mulgore"},
     },
 
     ["Brackenwall Village, Dustwallow Marsh"] = {
         ["Everlook, Winterspring"] = {"Camp Taurajo, The Barrens", "Crossroads, The Barrens", "Valormok, Azshara"},
         ["Nighthaven, Moonglade"] = {"Crossroads, The Barrens", "Bloodvenom Post, Felwood"},
+        ["Valormok, Azshara"] = {"Camp Taurajo, The Barrens", "Thunder Bluff, Mulgore"},
+        ["Orgrimmar, Durotar"] = {},
     },
 
     ["Bloodvenom Post, Felwood"] = {
@@ -175,20 +215,37 @@ FlyTimes.FlightRoutes["CLASSIC"]["Horde"] = {
         ["Everlook, Winterspring"] = {"Valormok, Azshara"},
         ["Thunder Bluff, Mulgore"] = {"Crossroads, The Barrens", "Camp Taurajo, The Barrens"},
         ["Gadgetzan, Tanaris"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles"},
+        ["Orgrimmar, Durotar"] = {},
+        ["Ratchet, The Barrens"] = {"Crossroads, The Barrens"},
     },
 
     ["Sun Rock Retreat, Stonetalon Mountains"] = {
         ["Marshal's Refuge, Un'Goro Crater"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles", "Gadgetzan, Tanaris"},
-        ["Everlook, Winterspring"] = {"Crossroads, The Barrens", "Valormok, Azshara"},
-        ["Thunder Bluff, Mulgore"] = {"Camp Taurajo, The Barrens"},
+        ["Everlook, Winterspring"] = {"Thunder Bluff, Mulgore", "Valormok, Azshara"},
+        ["Thunder Bluff, Mulgore"] = {},
         ["Gadgetzan, Tanaris"] = {"Crossroads, The Barrens", "Freewind Post, Thousand Needles"},
+        ["Valormok, Azshara"] = {"Thunder Bluff, Mulgore"},
+        ["Orgrimmar, Durotar"] = {"Thunder Bluff, Mulgore"},
+        ["Ratchet, The Barrens"] = {"Crossroads, The Barrens"},
     },
 
     ["Zoram'gar Outpost, Ashenvale"] = {
         ["Marshal's Refuge, Un'Goro Crater"] = {"Splintertree Post, Ashenvale", "Crossroads, The Barrens", "Freewind Post, Thousand Needles", "Gadgetzan, Tanaris"},
         ["Everlook, Winterspring"] = {"Splintertree Post, Ashenvale", "Valormok, Azshara"},
-        ["Thunder Bluff, Mulgore"] = {"Splintertree Post, Ashenvale", "Crossroads, The Barrens", "Camp Taurajo, The Barrens"},
+        ["Thunder Bluff, Mulgore"] = {"Splintertree Post, Ashenvale", "Sun Rock Retreat, Stonetalon Mountains"},
         ["Gadgetzan, Tanaris"] = {"Splintertree Post, Ashenvale", "Crossroads, The Barrens", "Freewind Post, Thousand Needles"},
+        ["Orgrimmar, Durotar"] = {"Crossroads, The Barrens"},
+        ["Ratchet, The Barrens"] = {"Crossroads, The Barrens"},
+    },
+
+    ["Cenarion Hold, Silithus"] = {
+        ["Valormok, Azshara"] = {"Gadgetzan, Tanaris", "Thunder Bluff, Mulgore"},
+        ["Orgrimmar, Durotar"] = {"Gadgetzan, Tanaris"},
+        ["Ratchet, The Barrens"] = {"Gadgetzan, Tanaris", "Crossroads, The Barrens"},
+    },
+
+    ["Nighthaven, Moonglade"] = {
+        ["Ratchet, The Barrens"] = {"Bloodvenom Post, Felwood", "Crossroads, The Barrens"},
     },
 }
 
@@ -206,6 +263,11 @@ FlyTimes.FlightRoutes["CLASSIC"]["Alliance"] = {
         ["Thorium Point, Searing Gorge"] = {"Ironforge, Dun Morogh"},
         ["Booty Bay, Stranglethorn"] = {"Darkshire, Duskwood"},
         ["Nethergarde Keep, Blasted Lands"] = {"Darkshire, Duskwood"},
+        ["Darkshire, Duskwood"] = {},
+        ["Ironforge, Dun Morogh"] = {},
+        ["Lakeshire, Redridge"] = {},
+        ["Morgan's Vigil, Burning Steppes"] = {"Lakeshire, Redridge"},
+        ["Thelsamar, Loch Modan"] = {"Ironforge, Dun Morogh"},
     },
 
     ["Ironforge, Dun Morogh"] = {
@@ -215,6 +277,11 @@ FlyTimes.FlightRoutes["CLASSIC"]["Alliance"] = {
         ["Refuge Pointe, Arathi"] = {"Menethil Harbor, Wetlands"},
         ["Sentinel Hill, Westfall"] = {"Stormwind, Elwynn"},
         ["Southshore, Hillsbrad"] = {"Menethil Harbor, Wetlands"},
+        ["Aerie Peak, The Hinterlands"] = {"Menethil Harbor, Wetlands", "Southshore, Hillsbrad"},
+        ["Chillwind Camp, Western Plaguelands"] = {"Menethil Harbor, Wetlands", "Southshore, Hillsbrad", "Aerie Peak, The Hinterlands"},
+        ["Darkshire, Duskwood"] = {"Stormwind, Elwynn"},
+        ["Lakeshire, Redridge"] = {"Stormwind, Elwynn"},
+        ["Morgan's Vigil, Burning Steppes"] = {"Stormwind, Elwynn", "Lakeshire, Redridge"},
     },
 
     ["Menethil Harbor, Wetlands"] = {
