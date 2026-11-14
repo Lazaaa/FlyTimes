@@ -10,6 +10,21 @@ FlyTimes = FlyTimes or {}
 local FTT = FlyTimes
 local L = FTT.L or {}
 
+-- Lua 5.0 (1.12.1) has no "#", "%", string.match or string methods
+local getn = table.getn
+
+local function smatch(s, pattern)
+    if not s then return nil end
+    local _, _, c1, c2 = string.find(s, pattern)
+    if c2 then return c1, c2 end
+    return c1
+end
+
+local function shortName(name)
+    return (string.gsub(name or "", "(%,.*)", ""))
+end
+FTT.ShortName = shortName
+
 -- =====================================================
 --  SAVED VARIABLES
 -- =====================================================
@@ -26,11 +41,11 @@ local function InitDB()
             barStyle = "classic",
             learningEnabled = true,
             measured = {},
-            measured_legs = {}, -- ÚJ: szakaszidők
         }
     end
     if not FlyTimesDB.measured then FlyTimesDB.measured = {} end
-    if not FlyTimesDB.measured_legs then FlyTimesDB.measured_legs = {} end
+    -- leg times of older versions were measured at zone borders: discard them
+    FlyTimesDB.measured_legs = nil
     if FlyTimesDB.learningEnabled == nil then FlyTimesDB.learningEnabled = true end
 end
 
@@ -52,12 +67,6 @@ local measureActive = false
 local measurePending = false
 local measureTimeout = 0
 
--- Leg measurement tracking
-local legWaypoints = {}
-local legZones = {}
-local legTimesMeasured = {}
-local currentLegIndex = 1
-local lastZone = ""
 
 -- =====================================================
 --  VERSION & FACTION
@@ -111,41 +120,6 @@ local function SaveMeasurement(fromName, toName, seconds)
 end
 
 -- =====================================================
---  LEG MEASUREMENT SYSTEM (SZAKASZIDŐK)
--- =====================================================
-
-local function GetLegKey(fromName, toName)
-    local fromShort = string.gsub(fromName, "(%,.*)", "")
-    local toShort = string.gsub(toName, "(%,.*)", "")
-    return fromShort .. "_to_" .. toShort
-end
-
-local function GetMeasuredLegTime(fromName, toName)
-    if not FlyTimesDB.measured_legs then return nil end
-    local key = GetLegKey(fromName, toName)
-    local entry = FlyTimesDB.measured_legs[key]
-    if not entry or entry.count < 2 then return nil end
-    return entry.total / entry.count
-end
-
-local function SaveLegMeasurement(fromName, toName, seconds)
-    if not seconds or seconds < 3 or seconds > 1800 then return false end
-    if not FlyTimesDB.measured_legs then FlyTimesDB.measured_legs = {} end
-    local key = GetLegKey(fromName, toName)
-    local entry = FlyTimesDB.measured_legs[key]
-    if not entry then
-        entry = { total = 0, count = 0, last = 0, min = seconds, max = seconds }
-        FlyTimesDB.measured_legs[key] = entry
-    end
-    entry.total = entry.total + seconds
-    entry.count = entry.count + 1
-    entry.last = seconds
-    if seconds < entry.min then entry.min = seconds end
-    if seconds > entry.max then entry.max = seconds end
-    return true, entry
-end
-
--- =====================================================
 --  FLIGHT ROUTES HELPER (multi-hop support)
 -- =====================================================
 
@@ -179,7 +153,7 @@ end
 
 function FTT:FormatRouteStops(fromName, toName)
     local stops = self:GetRouteStops(fromName, toName)
-    if not stops or #stops == 0 then return nil end
+    if not stops or getn(stops) == 0 then return nil end
     local parts = {}
     for _, stop in ipairs(stops) do
         table.insert(parts, (string.gsub(stop, "(%,.*)", "")))
@@ -229,7 +203,7 @@ end
 
 function FTT:GetMultiHopFlightTime(fromName, toName)
     local stops = self:GetRouteStops(fromName, toName)
-    if not stops or #stops == 0 then return nil end
+    if not stops or getn(stops) == 0 then return nil end
 
     local version = GetGameVersion()
     local faction = GetPlayerFaction()
@@ -258,22 +232,21 @@ function FTT:GetMultiHopFlightTime(fromName, toName)
 
     local total = 0
     local legsFound = 0
-    for i = 1, #path - 1 do
+    for i = 1, getn(path) - 1 do
         local t = findLeg(path[i], path[i + 1])
         if t then
             total = total + t
             legsFound = legsFound + 1
         end
     end
-    if legsFound == #path - 1 then return total end
+    if legsFound == getn(path) - 1 then return total end
     return nil
 end
 
--- Kiszámolja két pont közötti KÖZVETLEN szakasz idejét (mért, majd DB)
+-- Time of one direct leg, from the flight database. (The old zone-based leg
+-- measurement recorded zone borders instead of stops, so it is not used.)
 function FTT:GetLegTime(fromName, toName)
-    local measured = GetMeasuredLegTime(fromName, toName)
-    if measured then return measured end
-    
+
     local version = GetGameVersion()
     local faction = GetPlayerFaction()
     if not self.FlightDB or not self.FlightDB[version] or not self.FlightDB[version][faction] then
@@ -314,9 +287,17 @@ timerFrame:RegisterForDrag("LeftButton")
 timerFrame:SetScript("OnDragStart", function() this:StartMoving() end)
 timerFrame:SetScript("OnDragStop", function()
     this:StopMovingOrSizing()
-    local point, _, _, x, y = this:GetPoint()
-    FlyTimesDB.posX = x
-    FlyTimesDB.posY = y
+    -- StartMoving re-anchors the frame (e.g. to BOTTOMLEFT); store the offset
+    -- of the frame's centre from the screen centre, which is how it is restored
+    local cx, cy = this:GetCenter()
+    local ux, uy = UIParent:GetCenter()
+    if cx and ux then
+        local scale = this:GetEffectiveScale() / UIParent:GetEffectiveScale()
+        FlyTimesDB.posX = math.floor(cx * scale - ux + 0.5)
+        FlyTimesDB.posY = math.floor(cy * scale - uy + 0.5)
+        this:ClearAllPoints()
+        this:SetPoint("CENTER", UIParent, "CENTER", FlyTimesDB.posX, FlyTimesDB.posY)
+    end
 end)
 
 timerFrame.bg = timerFrame:CreateTexture(nil, "BACKGROUND")
@@ -364,7 +345,15 @@ timerFrame.bar.spark = timerFrame.bar:CreateTexture(nil, "OVERLAY")
 timerFrame.bar.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
 timerFrame.bar.spark:SetBlendMode("ADD")
 timerFrame.bar.spark:SetWidth(20)
-timerFrame.bar.spark:SetHeight(timerFrame.bar:GetHeight() * 2.5)
+timerFrame.bar.spark:SetHeight(60)
+timerFrame.bar.spark:SetPoint("CENTER", timerFrame.bar, "LEFT", 0, 0)
+
+local function SizeSpark()
+    local h = (FlyTimesDB and FlyTimesDB.barHeight) or timerFrame:GetHeight() or 30
+    if h < 10 then h = 30 end
+    timerFrame.bar.spark:SetHeight((h - 8) * 2.5)
+end
+FTT.SizeSpark = SizeSpark
 
 FTT.timerFrame = timerFrame
 
@@ -375,7 +364,7 @@ FTT.timerFrame = timerFrame
 local function FormatTime(seconds)
     if not seconds then return "??:??" end
     local mins = math.floor(seconds / 60)
-    local secs = math.floor(seconds % 60)
+    local secs = math.floor(seconds - mins * 60)
     return string.format("%d:%02d", mins, secs)
 end
 
@@ -385,7 +374,7 @@ end
 
 function FTT:UpdateWaypoints(elapsedTime)
     if not timerFrame.waypoints or not timerFrame.waypointTimes then return end
-    local count = #timerFrame.waypoints
+    local count = getn(timerFrame.waypoints)
     if count <= 1 then
         timerFrame.waypointLabel:Hide()
         return
@@ -435,7 +424,7 @@ function FTT:StartFlightTimer(duration, fromNode, toNode)
     local legTimes = {}
     local totalCalculatedTime = 0
     local current = fromNode
-    for i = 1, #waypoints - 1 do
+    for i = 1, getn(waypoints) - 1 do
         local leg = FTT:GetLegTime(waypoints[i], waypoints[i+1]) or 0
         table.insert(legTimes, leg)
         totalCalculatedTime = totalCalculatedTime + leg
@@ -457,16 +446,7 @@ function FTT:StartFlightTimer(duration, fromNode, toNode)
     timerFrame.waypointLabel:Show()
     FTT:UpdateWaypoints(0)
 
-    -- Leg measurement inicializálás
-    legWaypoints = waypoints
-    legZones = {}
-    for _, wp in ipairs(waypoints) do
-        local zone = string.match(wp, "%,%s*(.+)$") or wp
-        table.insert(legZones, zone)
-    end
-    legTimesMeasured = {}
-    currentLegIndex = 1
-    lastZone = GetZoneText()
+    SizeSpark()
 
     local measured = GetMeasuredTime(fromNode, toNode)
     if measured then
@@ -523,9 +503,18 @@ timerFrame:SetScript("OnUpdate", function()
     local remaining = flightDuration - elapsedTime
 
     if remaining <= 0 then
+        -- estimate was too short: keep a full bar until we actually land
+        if UnitOnTaxi and UnitOnTaxi("player") then
+            this.bar:SetValue(flightDuration)
+            this.text:SetText(L["ARRIVING"] or "Arriving...")
+            FTT:UpdateWaypoints(elapsedTime)
+            this.bar.spark:Hide()
+            return
+        end
         FTT:StopFlightTimer()
         return
     end
+    this.bar.spark:Show()
 
     this.bar:SetValue(elapsedTime)
     local percentage = (elapsedTime / flightDuration) * 100
@@ -562,9 +551,6 @@ measureFrame:SetScript("OnUpdate", function()
             measureActive = true
             measureStartTime = GetTime()
             measureTimeout = 0
-            lastZone = GetZoneText()
-            legTimesMeasured = {}
-            currentLegIndex = 1
             if timerFrame:IsShown() then
                 timerFrame.learningLabel:SetText("|cffffcc00" .. (L["LEARNING_LABEL"] or "[measuring...]") .. "|r")
                 timerFrame.learningLabel:Show()
@@ -582,52 +568,6 @@ measureFrame:SetScript("OnUpdate", function()
 
     if measureActive then
         measureTimeout = measureTimeout + 0.25
-
-        -- Zónaváltás figyelése a szakaszidőkhöz
-        if legWaypoints and #legWaypoints > 0 then
-            local currentZone = GetZoneText()
-            if currentZone and currentZone ~= lastZone then
-                -- Megnézzük, hogy ez a zóna egy következő waypoint zónája-e
-                for i = currentLegIndex + 1, #legWaypoints do
-                    if legZones[i] == currentZone then
-                        local legStart = (i == 2) and measureStartTime or nil
-                        if i == 2 then legStart = measureStartTime end
-                        -- Az előző szakasz idejének kiszámítása
-                        if i > 1 then
-                            local prevTime = legTimesMeasured[i-1] and (measureStartTime + legTimesMeasured[i-1]) or measureStartTime
-                            -- Ez így nem jó, mert a legTimesMeasured csak az eltelt időt tárolja
-                        end
-                        -- Egyszerűbb: az eltelt időt elmentjük
-                        local elapsedTotal = GetTime() - measureStartTime
-                        table.insert(legTimesMeasured, elapsedTotal)
-                        
-                        -- Elmentjük a szakaszidőt (a különbséget)
-                        local prevTotal = 0
-                        if #legTimesMeasured > 1 then
-                            prevTotal = legTimesMeasured[#legTimesMeasured - 1]
-                        end
-                        local legDuration = elapsedTotal - prevTotal
-                        
-                        if legDuration > 3 and legDuration < 1800 then
-                            local fromWp = legWaypoints[i-1]
-                            local toWp = legWaypoints[i]
-                            SaveLegMeasurement(fromWp, toWp, legDuration)
-                            
-                            if FlyTimesDB.showEstimate then
-                                DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff808080  [leg] %s -> %s: %s|r", 
-                                    string.gsub(fromWp, "(%,.*)", ""), 
-                                    string.gsub(toWp, "(%,.*)", ""), 
-                                    FormatTime(legDuration)))
-                            end
-                        end
-                        
-                        currentLegIndex = i
-                        break
-                    end
-                end
-                lastZone = currentZone
-            end
-        end
 
         if not onTaxi then
             local duration = GetTime() - (measureStartTime or GetTime())
@@ -648,8 +588,6 @@ measureFrame:SetScript("OnUpdate", function()
             measureFrom = nil
             measureTo = nil
             measureTimeout = 0
-            legWaypoints = {}
-            legZones = {}
 
             if timerFrame.learningLabel then timerFrame.learningLabel:Hide() end
         elseif measureTimeout > 1800 then
@@ -659,8 +597,6 @@ measureFrame:SetScript("OnUpdate", function()
             measureFrom = nil
             measureTo = nil
             measureTimeout = 0
-            legWaypoints = {}
-            legZones = {}
         end
     end
 
@@ -668,6 +604,15 @@ measureFrame:SetScript("OnUpdate", function()
         this:Hide()
     end
 end)
+
+function FTT.ClearMeasured()
+    local count = 0
+    for _ in pairs(FlyTimesDB.measured or {}) do count = count + 1 end
+    FlyTimesDB.measured = {}
+    FlyTimesDB.measured_legs = nil
+    DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff00ff00%s:|r " .. (L["MEASURED_ROUTES_CLEARED"] or "Cleared %d measured routes"),
+        L["ADDON_NAME"] or "FlyTimes", count))
+end
 
 function FTT:StartMeasurement(fromName, toName)
     if not FlyTimesDB or not FlyTimesDB.learningEnabled then return end
@@ -794,9 +739,13 @@ eventFrame:SetScript("OnEvent", function()
                 FTT.VERSION or "?",
                 msgL["LOADED"] or "loaded! Use /ft for options."))
 
-            if FlyTimesDB.barStyle and FTT.BarStyles then
+            if FTT.BarStyles then
+                if not (FlyTimesDB.barStyle and FTT.BarStyles.styles[FlyTimesDB.barStyle]) then
+                    FlyTimesDB.barStyle = "classic"
+                end
                 FTT.BarStyles:ApplyStyle(FlyTimesDB.barStyle, timerFrame)
             end
+            SizeSpark()
         end
 
     elseif event == "TAXIMAP_OPENED" then
@@ -841,7 +790,7 @@ if TaxiNodeOnButtonEnter then
                 GameTooltip:AddLine("|cffFFD700" .. label .. "|r " .. FormatTime(duration), 1, 1, 1)
 
                 local stops = FTT:GetRouteStops(fromName, toName)
-                if stops and #stops > 0 then
+                if stops and getn(stops) > 0 then
                     local parts = {}
                     for _, stop in ipairs(stops) do
                         table.insert(parts, (string.gsub(stop, "(%,.*)", "")))
@@ -865,8 +814,8 @@ SLASH_FLYTIMES2 = "/flytimes"
 SlashCmdList["FLYTIMES"] = function(msg)
     msg = string.lower(msg or "")
 
-    if msg:match("^style") then
-        local styleName = msg:match("^style%s+(.+)")
+    if string.find(msg, "^style") then
+        local styleName = smatch(msg, "^style%s+(.+)")
         if styleName == "list" then
             DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00" .. (L["ADDON_NAME"] or "FlyTimes") .. "|r " .. (L["STYLE_AVAILABLE_HEADER"] or "Available bar styles:"))
             local styles = FTT.BarStyles:GetStyleList()
@@ -893,8 +842,8 @@ SlashCmdList["FLYTIMES"] = function(msg)
         end
     end
 
-    if msg:match("^route") then
-        local routeName = msg:match("^route%s+(.+)")
+    if string.find(msg, "^route") then
+        local routeName = smatch(msg, "^route%s+(.+)")
         if not routeName then
             DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00" .. (L["ADDON_NAME"] or "FlyTimes") .. "|r " .. (L["ROUTE_USAGE"] or "Usage: /ft route <partial name>"))
             return
@@ -950,26 +899,8 @@ SlashCmdList["FLYTIMES"] = function(msg)
         if count == 0 then
             DEFAULT_CHAT_FRAME:AddMessage("  |cff808080" .. (L["NO_MEASURED_ROUTES"] or "(no measured routes yet)") .. "|r")
         end
-    elseif msg == "measuredlegs" then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00" .. (L["ADDON_NAME"] or "FlyTimes") .. ":|r Measured legs:")
-        local count = 0
-        for key, entry in pairs(FlyTimesDB.measured_legs or {}) do
-            if entry.count >= 2 then
-                local avg = entry.total / entry.count
-                DEFAULT_CHAT_FRAME:AddMessage(string.format("  %s: avg=%s, n=%d", key, FormatTime(avg), entry.count))
-                count = count + 1
-            end
-        end
-        if count == 0 then
-            DEFAULT_CHAT_FRAME:AddMessage("  |cff808080(no measured legs yet)|r")
-        end
     elseif msg == "clearmeasured" then
-        local count = 0
-        for _ in pairs(FlyTimesDB.measured or {}) do count = count + 1 end
-        FlyTimesDB.measured = {}
-        FlyTimesDB.measured_legs = {}
-        DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff00ff00%s:|r " .. (L["MEASURED_ROUTES_CLEARED"] or "Cleared %d measured routes"),
-            L["ADDON_NAME"] or "FlyTimes", count))
+        FTT.ClearMeasured()
     elseif msg == "estimate" then
         FlyTimesDB.showEstimate = not FlyTimesDB.showEstimate
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00" .. (L["ADDON_NAME"] or "FlyTimes") .. ":|r " .. (FlyTimesDB.showEstimate and (L["ESTIMATE_ON"] or "Estimate messages enabled") or (L["ESTIMATE_OFF"] or "Estimate messages disabled")))
@@ -985,22 +916,18 @@ SlashCmdList["FLYTIMES"] = function(msg)
     elseif msg == "debug" then
         local measuredCount = 0
         for _ in pairs(FlyTimesDB.measured or {}) do measuredCount = measuredCount + 1 end
-        local legCount = 0
-        for _ in pairs(FlyTimesDB.measured_legs or {}) do legCount = legCount + 1 end
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00" .. (L["DEBUG_HEADER"] or "FlyTimes DEBUG:") .. "|r")
         DEFAULT_CHAT_FRAME:AddMessage(string.format(L["DEBUG_CURRENT_NODE"] or "  Current node: %s", tostring(GetCurrentTaxiNodeName())))
         DEFAULT_CHAT_FRAME:AddMessage(string.format(L["DEBUG_NUM_NODES"] or "  NumTaxiNodes: %s", tostring(NumTaxiNodes and NumTaxiNodes() or "?")))
         DEFAULT_CHAT_FRAME:AddMessage(string.format(L["DEBUG_ON_TAXI"] or "  UnitOnTaxi: %s", tostring(UnitOnTaxi("player"))))
         DEFAULT_CHAT_FRAME:AddMessage(string.format(L["DEBUG_LEARNING"] or "  Learning: %s", tostring(FlyTimesDB.learningEnabled)))
         DEFAULT_CHAT_FRAME:AddMessage(string.format(L["DEBUG_MEASURED_COUNT"] or "  Measured routes: %d", measuredCount))
-        DEFAULT_CHAT_FRAME:AddMessage(string.format("  Measured legs: %d", legCount))
         DEFAULT_CHAT_FRAME:AddMessage(string.format("  Pending: %s, Active: %s", tostring(measurePending), tostring(measureActive)))
     else
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00" .. (L["ADDON_NAME"] or "FlyTimes") .. "|r " .. (L["CMD_HEADER"] or "commands:"))
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_TOGGLE"] or "/ft toggle - Enable/disable addon"))
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_LEARNING"] or "/ft learning - Toggle auto-learning of flight times"))
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_MEASURED"] or "/ft measured - List measured routes"))
-        DEFAULT_CHAT_FRAME:AddMessage("  /ft measuredlegs - List measured legs")
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_CLEARMEASURED"] or "/ft clearmeasured - Clear measured data"))
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_ESTIMATE"] or "/ft estimate - Toggle estimate messages"))
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_TEST"] or "/ft test - Test the timer bar"))

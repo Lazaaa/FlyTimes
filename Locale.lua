@@ -7,7 +7,7 @@ FTT.L = FTT.L or {}
 local L = FTT.L
 
 FTT.AUTHOR = "Kharon"
-FTT.VERSION = "1.0.5"
+FTT.VERSION = "1.0.6"
 
 -- Get client locale
 local locale = GetLocale()
@@ -42,6 +42,7 @@ L["ROUTE_NOT_IN_DB"] = "Route not in DB: %s -> %s"
 
 -- Learning / measurements
 L["LEARNING_LABEL"] = "[measuring...]"
+L["ARRIVING"] = "Arriving..."
 L["MEASURED_LABEL"] = "[measured]"
 L["MEASURED_SAVED"] = "Measured %s -> %s: %s (%d db, avg: %s)"
 L["MEASURED_ROUTES_HEADER"] = "Measured routes:"
@@ -136,6 +137,7 @@ if locale == "deDE" then
     L["FLIGHT_TIME_SOURCE_MEASURED"] = "gemessen"
     L["ROUTE_NOT_IN_DB"] = "Route nicht in DB: %s -> %s"
     L["LEARNING_LABEL"] = "[messe...]"
+    L["ARRIVING"] = "Ankunft..."
     L["MEASURED_LABEL"] = "[gemessen]"
     L["MEASURED_SAVED"] = "Gemessen %s -> %s: %s (%d mal, Durchschnitt: %s)"
     L["MEASURED_ROUTES_HEADER"] = "Gemessene Routen:"
@@ -221,6 +223,7 @@ elseif locale == "frFR" then
     L["FLIGHT_TIME_SOURCE_MEASURED"] = "mesuré"
     L["ROUTE_NOT_IN_DB"] = "Route introuvable dans la BDD: %s -> %s"
     L["LEARNING_LABEL"] = "[mesure...]"
+    L["ARRIVING"] = "Arrivée..."
     L["MEASURED_LABEL"] = "[mesuré]"
     L["MEASURED_SAVED"] = "Mesuré %s -> %s: %s (%d fois, moyenne: %s)"
     L["MEASURED_ROUTES_HEADER"] = "Routes mesurées:"
@@ -308,6 +311,7 @@ elseif locale == "esES" or locale == "esMX" then
     L["FLIGHT_TIME_SOURCE_MEASURED"] = "medido"
     L["ROUTE_NOT_IN_DB"] = "Ruta no encontrada: %s -> %s"
     L["LEARNING_LABEL"] = "[midiendo...]"
+    L["ARRIVING"] = "Llegando..."
     L["MEASURED_LABEL"] = "[medido]"
     L["MEASURED_SAVED"] = "Medido %s -> %s: %s (%d veces, media: %s)"
     L["MEASURED_ROUTES_HEADER"] = "Rutas medidas:"
@@ -394,6 +398,7 @@ elseif locale == "ruRU" then
     L["FLIGHT_TIME_SOURCE_MEASURED"] = "измерено"
     L["ROUTE_NOT_IN_DB"] = "Маршрут не найден: %s -> %s"
     L["LEARNING_LABEL"] = "[измерение...]"
+    L["ARRIVING"] = "Прибытие..."
     L["MEASURED_LABEL"] = "[измерено]"
     L["MEASURED_SAVED"] = "Измерено %s -> %s: %s (%d раз, среднее: %s)"
     L["MEASURED_ROUTES_HEADER"] = "Измеренные маршруты:"
@@ -480,6 +485,7 @@ elseif locale == "zhCN" then
     L["FLIGHT_TIME_SOURCE_MEASURED"] = "已测量"
     L["ROUTE_NOT_IN_DB"] = "数据库中没有路线: %s -> %s"
     L["LEARNING_LABEL"] = "[测量中...]"
+    L["ARRIVING"] = "即将到达..."
     L["MEASURED_LABEL"] = "[已测量]"
     L["MEASURED_SAVED"] = "已测量 %s -> %s: %s (%d 次, 平均: %s)"
     L["MEASURED_ROUTES_HEADER"] = "已测量的路线:"
@@ -565,6 +571,7 @@ elseif locale == "koKR" then
     L["FLIGHT_TIME_SOURCE_MEASURED"] = "측정됨"
     L["ROUTE_NOT_IN_DB"] = "DB에 경로가 없음: %s -> %s"
     L["LEARNING_LABEL"] = "[측정 중...]"
+    L["ARRIVING"] = "도착 중..."
     L["MEASURED_LABEL"] = "[측정됨]"
     L["MEASURED_SAVED"] = "측정됨 %s -> %s: %s (%d회, 평균: %s)"
     L["MEASURED_ROUTES_HEADER"] = "측정된 경로:"

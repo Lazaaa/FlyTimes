@@ -162,7 +162,8 @@ FlyTimes.BarStyles.styles = {
 function FlyTimes.BarStyles:ApplyStyle(styleName, timerFrame)
     local style = self.styles[styleName]
     if not style then
-        print("|cff00ff00FlyTimes:|r Unknown style: " .. tostring(styleName))
+        -- 1.12 has no print()
+        DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00FlyTimes:|r Unknown style: " .. tostring(styleName))
         return false
     end
     

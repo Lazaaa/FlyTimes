@@ -14,11 +14,36 @@ local generalChecks = {}
 -- =====================================================
 
 local function CreateCheckbox(parent, x, y, labelText, onClickFunc)
-    local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    -- Built from a plain Button + textures: the Emberveil client's CheckButton
+    -- lacks SetCheckedTexture, so no CheckButton template/methods are used.
+    local cb = CreateFrame("Button", nil, parent)
     cb:SetWidth(24)
     cb:SetHeight(24)
     cb:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    cb:SetScript("OnClick", onClickFunc)
+
+    cb.box = cb:CreateTexture(nil, "ARTWORK")
+    cb.box:SetAllPoints(cb)
+    cb.box:SetTexture("Interface\\Buttons\\UI-CheckBox-Up")
+    cb.mark = cb:CreateTexture(nil, "OVERLAY")
+    cb.mark:SetAllPoints(cb)
+    cb.mark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+    cb.mark:Hide()
+    local hl = cb:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints(cb)
+    hl:SetTexture("Interface\\Buttons\\UI-CheckBox-Highlight")
+    hl:SetBlendMode("ADD")
+
+    -- same calls as a real CheckButton, so the rest of the file is unchanged
+    cb.SetChecked = function(self, checked)
+        self.checked = checked and 1 or nil
+        if self.checked then self.mark:Show() else self.mark:Hide() end
+    end
+    cb.GetChecked = function(self) return self.checked end
+
+    cb:SetScript("OnClick", function()
+        this:SetChecked(not this.checked)
+        onClickFunc()
+    end)
 
     local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     label:SetPoint("LEFT", cb, "RIGHT", 6, 0)
@@ -274,11 +299,7 @@ local function BuildOptionsFrame()
     clearBtn:SetPoint("TOPLEFT", resetPosBtn, "BOTTOMLEFT", 0, -8)
     clearBtn:SetText(L["OPT_CLEAR_MEASURED"] or "Clear measured data")
     clearBtn:SetScript("OnClick", function()
-        local count = 0
-        for _ in pairs(FlyTimesDB.measured or {}) do count = count + 1 end
-        FlyTimesDB.measured = {}
-        DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff00ff00FlyTimes:|r " ..
-            (L["MEASURED_ROUTES_CLEARED"] or "Cleared %d measured routes"), count))
+        FTT.ClearMeasured()
     end)
 
     -- Command hint (directly below the two buttons)
@@ -317,7 +338,7 @@ local function BuildOptionsFrame()
     local startY = -48
 
     for index, key in ipairs(styleOrder) do
-        local col = (index - 1) % 5
+        local col = (index - 1) - math.floor((index - 1) / 5) * 5
         local row = math.floor((index - 1) / 5)
         local x = startX + col * (buttonW + spacingX)
         local y = startY - row * (buttonH + spacingY)
