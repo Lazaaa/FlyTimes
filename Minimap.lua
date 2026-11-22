@@ -29,13 +29,31 @@ border:SetWidth(54)
 border:SetHeight(54)
 border:SetPoint("TOPLEFT", minimapButton, "TOPLEFT")
 
--- Icon (the owl/clock mask)
+-- Icon: a flying gryphon. 6 separate frame files (no SetTexCoord sheet:
+-- its argument order is not reliable on this client). It always flaps,
+-- a little faster with the mouse over it and while on a flight path.
+local GRYPHON = "Interface\\AddOns\\FlyTimes\\gryphon"
+local GRYPHON_FRAMES = 6
+local GRYPHON_IDLE = 2
 local icon = minimapButton:CreateTexture(nil, "ARTWORK")
-icon:SetTexture(ICON_TEXTURE)
-icon:SetWidth(20)
-icon:SetHeight(20)
+icon:SetTexture(GRYPHON .. GRYPHON_IDLE)
+icon:SetWidth(22)
+icon:SetHeight(22)
 icon:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
-icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+local anim = CreateFrame("Frame", nil, minimapButton)
+anim.t, anim.frame, anim.hover = 0, GRYPHON_IDLE, false
+anim:SetScript("OnUpdate", function()
+    -- always flapping; a bit faster with the mouse over it or in flight
+    local fast = this.hover or (UnitOnTaxi and UnitOnTaxi("player"))
+    this.t = this.t + (arg1 or 0)
+    if this.t < (fast and 0.09 or 0.13) then return end
+    this.t = 0
+    this.frame = this.frame + 1
+    if this.frame > GRYPHON_FRAMES then this.frame = 1 end
+    icon:SetTexture(GRYPHON .. this.frame)
+end)
+FTT.minimapAnim = anim
 
 -- =====================================================
 --  POSITIONING (angle-based, like oneclick-heal)
@@ -134,6 +152,7 @@ end)
 -- =====================================================
 
 minimapButton:SetScript("OnEnter", function()
+    anim.hover = true
     GameTooltip:SetOwner(minimapButton, "ANCHOR_LEFT")
     GameTooltip:SetText(L["MINIMAP_TOOLTIP_TITLE"] or "FlyTimes Settings", 1, 0.82, 0)
     GameTooltip:AddLine(L["MINIMAP_TOOLTIP_LEFTCLICK"] or "Left-click to open the settings.", 1, 1, 1)
@@ -142,6 +161,7 @@ minimapButton:SetScript("OnEnter", function()
 end)
 
 minimapButton:SetScript("OnLeave", function()
+    anim.hover = false
     GameTooltip:Hide()
 end)
 

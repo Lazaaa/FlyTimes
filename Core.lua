@@ -33,7 +33,7 @@ local function InitDB()
     if not FlyTimesDB then
         FlyTimesDB = {
             enabled = true,
-            showEstimate = true,
+            showEstimate = false,
             barWidth = 300,
             barHeight = 30,
             posX = 0,
@@ -47,6 +47,12 @@ local function InitDB()
     -- leg times of older versions were measured at zone borders: discard them
     FlyTimesDB.measured_legs = nil
     if FlyTimesDB.learningEnabled == nil then FlyTimesDB.learningEnabled = true end
+    -- 1.0.8: the flight time is no longer written to chat at take-off by
+    -- default (switch it back on in the options or with /ft estimate)
+    if not FlyTimesDB.estimateOff108 then
+        FlyTimesDB.showEstimate = false
+        FlyTimesDB.estimateOff108 = true
+    end
 end
 
 InitDB()
@@ -94,6 +100,13 @@ local function GetMeasurementKey(fromName, toName)
     return fromShort .. "_to_" .. toShort
 end
 
+-- true once the route has been flown and timed at least once
+local function HasMeasurement(fromName, toName)
+    if not (FlyTimesDB and FlyTimesDB.measured and fromName and toName) then return false end
+    local entry = FlyTimesDB.measured[GetMeasurementKey(fromName, toName)]
+    return entry ~= nil and (entry.count or 0) >= 1
+end
+
 local function GetMeasuredTime(fromName, toName)
     if not FlyTimesDB.measured then return nil end
     local key = GetMeasurementKey(fromName, toName)
@@ -123,7 +136,60 @@ end
 --  FLIGHT ROUTES HELPER (multi-hop support)
 -- =====================================================
 
+-- The real hops, read from the client's flight map (the route lines it
+-- draws): GetNumRoutes(i) segments, TaxiGetDestX/Y(i, j) the end of each
+-- segment, matched to the nearest flight point. This follows the flight
+-- points this character knows, so it beats the built-in table.
+function FTT:ReadLiveRoutes()
+    if not (NumTaxiNodes and TaxiNodeName and TaxiNodeGetType and TaxiNodePosition
+            and GetNumRoutes and TaxiGetDestX and TaxiGetDestY) then return end
+    local ok = pcall(function()
+        local from
+        local n = NumTaxiNodes() or 0
+        local pos = {}
+        for k = 1, n do
+            local x, y = TaxiNodePosition(k)
+            pos[k] = { x = x, y = y, name = TaxiNodeName(k) }
+            if TaxiNodeGetType(k) == "CURRENT" then from = pos[k].name end
+        end
+        if not from then return end
+        FlyTimesDB.liveRoutes = FlyTimesDB.liveRoutes or {}
+        local known = FlyTimesDB.liveRoutes[from] or {}
+        for i = 1, n do
+            if TaxiNodeGetType(i) == "REACHABLE" then
+                local hops = GetNumRoutes(i)
+                if hops and hops >= 1 then
+                    local stops, good = {}, true
+                    for j = 1, hops - 1 do
+                        local x, y = TaxiGetDestX(i, j), TaxiGetDestY(i, j)
+                        local best, bestD
+                        for k = 1, n do
+                            if pos[k].x and x then
+                                local d = (pos[k].x - x) * (pos[k].x - x) + (pos[k].y - y) * (pos[k].y - y)
+                                if not bestD or d < bestD then best, bestD = k, d end
+                            end
+                        end
+                        if not best or bestD > 0.0004 then good = false break end -- > 2% of the map away
+                        table.insert(stops, pos[best].name)
+                    end
+                    if good then known[pos[i].name] = stops end
+                end
+            end
+        end
+        FlyTimesDB.liveRoutes[from] = known
+    end)
+    return ok
+end
+
 function FTT:GetRouteStops(fromName, toName)
+    -- 1) what the flight map showed for this character
+    local live = FlyTimesDB and FlyTimesDB.liveRoutes and fromName and FlyTimesDB.liveRoutes[fromName]
+    if live and toName and live[toName] then
+        FTT.routeFromMap = true
+        return live[toName]
+    end
+    FTT.routeFromMap = false
+    -- 2) built-in table
     if not self.FlightRoutes then return nil end
     if not self.FlightRoutes["CLASSIC"] then return nil end
     local faction = GetPlayerFaction()
@@ -330,11 +396,124 @@ timerFrame.routeLabel:SetPoint("BOTTOM", timerFrame, "TOP", 0, 4)
 timerFrame.routeLabel:SetTextColor(1, 1, 1)
 timerFrame.routeLabel:SetFont("Fonts\\FRIZQT__.TTF", 11, "OUTLINE")
 
-timerFrame.waypointLabel = timerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-timerFrame.waypointLabel:SetPoint("BOTTOM", timerFrame.routeLabel, "TOP", 0, 2)
-timerFrame.waypointLabel:SetTextColor(1, 1, 1)
-timerFrame.waypointLabel:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
-timerFrame.waypointLabel:Hide()
+-- route track above the route name: a dot per flight point, lines between
+-- them that fill up as you fly. Passed points gold, the next one green with
+-- a soft pulse, the ones after it green rings.
+-- (kept under the old name, so Show/Hide calls elsewhere still work)
+local TRACK_TEX = "Interface\\AddOns\\FlyTimes\\"
+local LINE_TEX = "Interface\\Tooltips\\UI-Tooltip-Background"
+local TRACK_H = 16
+local track = CreateFrame("Frame", nil, timerFrame)
+track:SetWidth(200)
+track:SetHeight(TRACK_H)
+track:SetPoint("BOTTOM", timerFrame.routeLabel, "TOP", 0, 3)
+track:Hide()
+track.dots, track.lines = {}, {}
+timerFrame.waypointLabel = track
+
+local function trackTex(layer, file, size)
+    local t = track:CreateTexture(nil, layer)
+    t:SetTexture(file)
+    t:SetWidth(size)
+    t:SetHeight(size)
+    return t
+end
+
+local function trackDot(i)
+    local d = track.dots[i]
+    if d then return d end
+    d = {
+        glow = trackTex("BACKGROUND", TRACK_TEX .. "route_glow", 26),
+        fill = trackTex("OVERLAY", TRACK_TEX .. "route_dot", 10),
+        ring = trackTex("OVERLAY", TRACK_TEX .. "route_ring", 12),
+    }
+    d.glow:SetVertexColor(0.2, 1, 0.3)
+    -- mouse over a dot: name of the flight point and when you get there
+    local hit = CreateFrame("Button", nil, track)
+    hit:SetWidth(16)
+    hit:SetHeight(16)
+    hit:SetFrameLevel(track:GetFrameLevel() + 2)
+    hit.index = i
+    hit:SetScript("OnEnter", function()
+        local wps, times = timerFrame.waypoints, timerFrame.waypointTimes
+        local name = wps and wps[this.index]
+        if not name then return end
+        GameTooltip:SetOwner(this, "ANCHOR_TOP")
+        GameTooltip:SetText(name, 1, 0.82, 0)
+        local t = times and times[this.index]
+        local elapsed = flightStartTime and (GetTime() - flightStartTime) or 0
+        if this.index == 1 then
+            GameTooltip:AddLine(L["TRACK_START"] or "Start", 0.7, 0.7, 0.7)
+        elseif t and elapsed >= t then
+            GameTooltip:AddLine(L["TRACK_PASSED"] or "Flown over", 0.7, 0.7, 0.7)
+        elseif t then
+            local left = math.floor(t - elapsed + 0.5)
+            local m = math.floor(left / 60)
+            GameTooltip:AddLine(string.format(L["TRACK_IN"] or "in %s", string.format("%d:%02d", m, left - m * 60)), 0.4, 1, 0.4)
+        end
+        if this.index > 1 and this.index < getn(wps) then
+            GameTooltip:AddLine(L["TRACK_VIA"] or "Flown over, no landing", 0.6, 0.6, 0.6)
+        end
+        if this.index > 1 and this.index < getn(wps) and FTT.routeFromMap == false then
+            GameTooltip:AddLine(L["TRACK_ESTIMATED"] or "(stop estimated, not read from the flight map)", 0.6, 0.6, 0.6)
+        end
+        GameTooltip:Show()
+    end)
+    hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    d.hit = hit
+    track.dots[i] = d
+    return d
+end
+
+local function trackLine(i)
+    local l = track.lines[i]
+    if l then return l end
+    l = {}
+    l.bg = track:CreateTexture(nil, "BORDER")
+    l.bg:SetTexture(LINE_TEX)
+    l.bg:SetVertexColor(0.35, 0.37, 0.4, 0.9)
+    l.bg:SetHeight(2)
+    l.fill = track:CreateTexture(nil, "ARTWORK")
+    l.fill:SetTexture(LINE_TEX)
+    l.fill:SetVertexColor(1, 0.8, 0.2, 1)
+    l.fill:SetHeight(2)
+    track.lines[i] = l
+    return l
+end
+
+-- lay out the dots for the current route (one anchor + size everywhere)
+local function layoutTrack(count)
+    local gap = 44
+    if count > 6 then gap = 32 end
+    local width = (count - 1) * gap
+    track:SetWidth(width + 20)
+    track.gap = gap
+    for i = 1, count do
+        local d = trackDot(i)
+        local x = 10 + (i - 1) * gap
+        for _, t in pairs(d) do
+            t:ClearAllPoints()
+            t:SetPoint("CENTER", track, "LEFT", x, 0)
+        end
+        if i < count then
+            local l = trackLine(i)
+            l.bg:ClearAllPoints()
+            l.bg:SetPoint("LEFT", track, "LEFT", x + 6, 0)
+            l.bg:SetWidth(gap - 12)
+            l.fill:ClearAllPoints()
+            l.fill:SetPoint("LEFT", track, "LEFT", x + 6, 0)
+            l.bg:Show()
+        end
+    end
+    for i = count + 1, getn(track.dots) do
+        for _, t in pairs(track.dots[i]) do t:Hide() end
+    end
+    for i = count, getn(track.lines) do
+        track.lines[i].bg:Hide()
+        track.lines[i].fill:Hide()
+    end
+    track.count = count
+end
 
 timerFrame.learningLabel = timerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 timerFrame.learningLabel:SetPoint("TOP", timerFrame, "BOTTOM", 0, -4)
@@ -373,37 +552,77 @@ end
 -- =====================================================
 
 function FTT:UpdateWaypoints(elapsedTime)
-    if not timerFrame.waypoints or not timerFrame.waypointTimes then return end
-    local count = getn(timerFrame.waypoints)
+    local wps, times = timerFrame.waypoints, timerFrame.waypointTimes
+    if not wps or not times then return end
+    local count = getn(wps)
     if count <= 1 then
-        timerFrame.waypointLabel:Hide()
+        track:Hide()
         return
     end
+    if track.count ~= count then layoutTrack(count) end
 
-    local text = {}
+    local nextIdx
     for i = 1, count do
-        local targetTime = timerFrame.waypointTimes[i]
-        if targetTime and elapsedTime >= targetTime then
-            table.insert(text, "|cff555555o|r")
+        local t = times[i]
+        local passed = t and elapsedTime >= t
+        local d = trackDot(i)
+        d.hit:Show()
+        if passed then
+            d.fill:SetVertexColor(1, 0.8, 0.2)
+            d.fill:Show()
+            d.ring:Hide()
+            d.glow:Hide()
+        elseif not nextIdx then
+            nextIdx = i
+            d.fill:SetVertexColor(0.25, 1, 0.35)
+            d.fill:Show()
+            d.ring:SetVertexColor(0.6, 1, 0.65)
+            d.ring:Show()
+            -- slow pulse
+            local a = 0.45 + 0.35 * math.sin(GetTime() * 3)
+            d.glow:SetAlpha(a)
+            d.glow:Show()
         else
-            table.insert(text, "|cff00ff00o|r")
+            d.fill:Hide()
+            d.ring:SetVertexColor(0.25, 0.9, 0.35)
+            d.ring:Show()
+            d.glow:Hide()
+        end
+        -- line to the next point fills with the time flown on that leg
+        if i < count then
+            local l = trackLine(i)
+            local t0, t1 = times[i] or 0, times[i + 1] or 0
+            local f = 0
+            if elapsedTime >= t1 then f = 1
+            elseif t1 > t0 and elapsedTime > t0 then f = (elapsedTime - t0) / (t1 - t0) end
+            local w = (track.gap - 12) * f
+            if w >= 1 then
+                l.fill:SetWidth(w)
+                l.fill:Show()
+            else
+                l.fill:Hide()
+            end
         end
     end
-    timerFrame.waypointLabel:SetText(table.concat(text, " |cff808080-|r "))
+    track:Show()
 end
 
 -- =====================================================
 --  START / STOP TIMER
 -- =====================================================
 
-function FTT:StartFlightTimer(duration, fromNode, toNode)
+function FTT:StartFlightTimer(duration, fromNode, toNode, startedAt)
     if not FlyTimesDB or not FlyTimesDB.enabled then return end
 
     local now = GetTime()
-    if (now - lastStartTime) < 1 then return end
-    lastStartTime = now
+    if not startedAt then
+        if (now - lastStartTime) < 1 then return end
+        lastStartTime = now
+    end
 
-    flightStartTime = now
+    -- startedAt: restoring a flight after /reload (GetTime keeps running)
+    flightStartTime = startedAt or now
+    if FTT.SaveActiveFlight then FTT:SaveActiveFlight(flightStartTime, duration, fromNode, toNode) end
     flightDuration = duration
     sourceNode = fromNode
     destNode = toNode
@@ -449,12 +668,9 @@ function FTT:StartFlightTimer(duration, fromNode, toNode)
     SizeSpark()
 
     local measured = GetMeasuredTime(fromNode, toNode)
-    if measured then
-        timerFrame.learningLabel:SetText("|cff88ff88" .. (L["MEASURED_LABEL"] or "[measured]") .. "|r")
-        timerFrame.learningLabel:Show()
-    else
-        timerFrame.learningLabel:Hide()
-    end
+    -- no "[measured]" label: the bar shows nothing under it once a route
+    -- is known; "[measuring...]" appears only for a route never timed
+    timerFrame.learningLabel:Hide()
 
     if FlyTimesDB.showEstimate then
         local source = measured and (L["FLIGHT_TIME_SOURCE_MEASURED"] or "measured")
@@ -475,6 +691,7 @@ function FTT:StartFlightTimer(duration, fromNode, toNode)
 end
 
 function FTT:StopFlightTimer()
+    if FTT.ClearActiveFlight then FTT:ClearActiveFlight() end
     flightStartTime = nil
     flightDuration = nil
     sourceNode = nil
@@ -551,7 +768,9 @@ measureFrame:SetScript("OnUpdate", function()
             measureActive = true
             measureStartTime = GetTime()
             measureTimeout = 0
-            if timerFrame:IsShown() then
+            -- the route keeps being measured (the average gets better), but
+            -- "[measuring...]" is only shown while it has no measured time yet
+            if timerFrame:IsShown() and not HasMeasurement(measureFrom, measureTo) then
                 timerFrame.learningLabel:SetText("|cffffcc00" .. (L["LEARNING_LABEL"] or "[measuring...]") .. "|r")
                 timerFrame.learningLabel:Show()
             end
@@ -732,11 +951,11 @@ eventFrame:SetScript("OnEvent", function()
             timerFrame:ClearAllPoints()
             timerFrame:SetPoint("CENTER", UIParent, "CENTER", FlyTimesDB.posX or 0, FlyTimesDB.posY or 200)
 
+            -- load line without the version (that is in the options window)
             local msgL = FTT.L or {}
-            DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff00ff00%s|r by %s ver. %s %s",
+            DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff00ff00%s|r by %s %s",
                 msgL["ADDON_NAME"] or "FlyTimes",
                 FTT.AUTHOR or "Unknown",
-                FTT.VERSION or "?",
                 msgL["LOADED"] or "loaded! Use /ft for options."))
 
             if FTT.BarStyles then
@@ -749,6 +968,7 @@ eventFrame:SetScript("OnEvent", function()
         end
 
     elseif event == "TAXIMAP_OPENED" then
+        FTT:ReadLiveRoutes()
         for i = 1, 20 do
             local btn = _G["TaxiButton"..i]
             if btn then HookTaxiButton(btn) end
@@ -782,6 +1002,8 @@ if TaxiNodeOnButtonEnter then
         local toName = TaxiNodeName and TaxiNodeName(buttonID)
 
         if fromName and toName then
+            local live = FlyTimesDB.liveRoutes and FlyTimesDB.liveRoutes[fromName]
+            if not (live and live[toName]) then FTT:ReadLiveRoutes() end
             local duration = FTT:GetFlightTime(fromName, toName)
             if duration then
                 local measured = GetMeasuredTime(fromName, toName)
@@ -796,6 +1018,10 @@ if TaxiNodeOnButtonEnter then
                         table.insert(parts, (string.gsub(stop, "(%,.*)", "")))
                     end
                     local stopsLine = table.concat(parts, " > ")
+                    if FTT.routeFromMap == false then
+                        -- not read from this flight map: from the built-in table
+                        stopsLine = stopsLine .. " |cff808080(" .. (L["TOOLTIP_STOPS_EST"] or "estimated") .. ")|r"
+                    end
                     GameTooltip:AddLine("|cff808080" .. (L["TOOLTIP_STOPS"] or "Stops:") .. "|r " .. stopsLine, 1, 1, 1)
                 end
                 GameTooltip:Show()
@@ -922,6 +1148,13 @@ SlashCmdList["FLYTIMES"] = function(msg)
         DEFAULT_CHAT_FRAME:AddMessage(string.format(L["DEBUG_ON_TAXI"] or "  UnitOnTaxi: %s", tostring(UnitOnTaxi("player"))))
         DEFAULT_CHAT_FRAME:AddMessage(string.format(L["DEBUG_LEARNING"] or "  Learning: %s", tostring(FlyTimesDB.learningEnabled)))
         DEFAULT_CHAT_FRAME:AddMessage(string.format(L["DEBUG_MEASURED_COUNT"] or "  Measured routes: %d", measuredCount))
+        local nLive = 0
+        if FlyTimesDB.liveRoutes then for _, v in pairs(FlyTimesDB.liveRoutes) do for _ in pairs(v) do nLive = nLive + 1 end end end
+        local cv = "n/a"
+        if FTT.cvarStatus then cv = FTT.cvarStatus() end
+        DEFAULT_CHAT_FRAME:AddMessage("  Reload store: " .. cv)
+        DEFAULT_CHAT_FRAME:AddMessage(string.format("  Route API (GetNumRoutes/TaxiGetDestX): %s, routes read from flight maps: %d",
+            (GetNumRoutes and TaxiGetDestX) and "yes" or "NO", nLive))
         DEFAULT_CHAT_FRAME:AddMessage(string.format("  Pending: %s, Active: %s", tostring(measurePending), tostring(measureActive)))
     else
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00" .. (L["ADDON_NAME"] or "FlyTimes") .. "|r " .. (L["CMD_HEADER"] or "commands:"))
@@ -938,4 +1171,128 @@ SlashCmdList["FLYTIMES"] = function(msg)
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_DEBUG"] or "/ft debug - Show taxi debug info"))
         DEFAULT_CHAT_FRAME:AddMessage("  " .. (L["CMD_HELP"] or "Drag the bar to move it"))
     end
+end
+
+
+-- =====================================================
+--  KEEP THE BAR OVER /reload
+-- =====================================================
+-- The flight is stored in a client variable (CVar): it survives a UI
+-- reload, while SavedVariables on this client are only written on exit.
+-- GetTime() keeps counting across a reload, so the bar resumes in place.
+
+local CVAR = "FlyTimesActiveFlight"
+local SEP = "~"
+local hasCVar = false
+do
+    -- after a reload the CVar already exists: do not register it again,
+    -- that could reset it to the default
+    local ok, v = pcall(GetCVar, CVAR)
+    if ok and v ~= nil then
+        hasCVar = true
+    elseif RegisterCVar then
+        hasCVar = pcall(RegisterCVar, CVAR, "")
+    end
+end
+
+-- the take-off is stored as wall-clock time (time()): GetTime() may start
+-- again from zero after a reload on this client
+function FTT:SaveActiveFlight(startedAt, duration, fromNode, toNode)
+    -- without time() keep GetTime() ("g" marks it)
+    local wall = time and (time() - (GetTime() - startedAt)) or nil
+    if not wall then
+        local v = string.format("g%.1f%s%d%s%s%s%s", startedAt, SEP, duration, SEP, fromNode or "?", SEP, toNode or "?")
+        if hasCVar then FTT.cvarSaved = pcall(SetCVar, CVAR, v) end
+        if FlyTimesDB then FlyTimesDB.activeFlight = v end
+        return
+    end
+    local v = string.format("%d%s%d%s%s%s%s", wall, SEP, duration, SEP, fromNode or "?", SEP, toNode or "?")
+    FTT.cvarSaved = false
+    if hasCVar then
+        FTT.cvarSaved = pcall(SetCVar, CVAR, v)
+    end
+    if FlyTimesDB then FlyTimesDB.activeFlight = v end
+end
+
+function FTT:ClearActiveFlight()
+    if hasCVar then pcall(SetCVar, CVAR, "") end
+    if FlyTimesDB then FlyTimesDB.activeFlight = nil end
+end
+
+local function readActiveFlight()
+    local v
+    if hasCVar then
+        local ok, c = pcall(GetCVar, CVAR)
+        if ok and c and c ~= "" then v = c end
+    end
+    v = v or (FlyTimesDB and FlyTimesDB.activeFlight)
+    if not v then return nil end
+    local _, _, g, wall, dur, from, to = string.find(v, "^(g?)([%d%.]+)~(%d+)~(.-)~(.*)$")
+    if not wall then return nil end
+    local st
+    if g == "g" then
+        st = tonumber(wall)
+    elseif time then
+        -- back to this session's GetTime() scale
+        st = GetTime() - (time() - tonumber(wall))
+    else
+        return nil
+    end
+    return st, tonumber(dur), from, to
+end
+FTT.ReadActiveFlight = readActiveFlight
+
+function FTT:RestoreFlight()
+    if flightStartTime then return true end -- already running
+    local st, dur, from, to = readActiveFlight()
+    if not st then return true end
+    local onTaxi = UnitOnTaxi and UnitOnTaxi("player")
+    local now = GetTime()
+    if now - st > dur + 120 then
+        FTT:ClearActiveFlight() -- an old entry
+        return true
+    end
+    if not onTaxi then return false end -- not (yet) reported on the taxi: try again
+    FTT:StartFlightTimer(dur, from, to, st)
+    -- keep measuring this flight too, from its real take-off time
+    if FlyTimesDB.learningEnabled and from ~= "?" and to ~= "?" then
+        measureFrom, measureTo = from, to
+        measurePending, measureActive = false, true
+        measureStartTime = st
+        measureTimeout = 0
+        measureFrame.elapsed = 0
+        measureFrame:Show()
+    end
+    return true
+end
+
+local restoreFrame = CreateFrame("Frame")
+restoreFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+restoreFrame:SetScript("OnEvent", function()
+    -- after a reload UnitOnTaxi may need a while to report the taxi:
+    -- check every half second for up to 15 seconds
+    this.wait, this.tries = 0.5, 30
+    this:SetScript("OnUpdate", function()
+        this.wait = this.wait - (arg1 or 0)
+        if this.wait > 0 then return end
+        this.wait = 0.5
+        this.tries = this.tries - 1
+        local done = FTT:RestoreFlight()
+        if done or flightStartTime or this.tries <= 0 then
+            this:SetScript("OnUpdate", nil)
+            if not done and not flightStartTime and readActiveFlight() then
+                FTT:ClearActiveFlight() -- landed during the reload
+            end
+        end
+    end)
+end)
+
+-- for /ft debug: can the flight be kept over a reload on this client?
+function FTT.cvarStatus()
+    local t = "RegisterCVar " .. (RegisterCVar and "yes" or "NO")
+    t = t .. ", cvar " .. (hasCVar and "ok" or "FAILED")
+    local ok, v = pcall(GetCVar, CVAR)
+    t = t .. ", value '" .. tostring(ok and v or "?") .. "'"
+    t = t .. ", GetTime " .. string.format("%.0f", GetTime())
+    return t
 end

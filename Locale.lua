@@ -7,7 +7,7 @@ FTT.L = FTT.L or {}
 local L = FTT.L
 
 FTT.AUTHOR = "Kharon"
-FTT.VERSION = "1.0.6"
+FTT.VERSION = "1.1.8"
 
 -- Get client locale
 local locale = GetLocale()
@@ -18,7 +18,7 @@ local locale = GetLocale()
 
 L["ADDON_NAME"] = "FlyTimes"
 L["LOADED"] = "loaded! Use /ft for options."
-L["TOOLTIP_STOPS"] = "Stops:"
+L["TOOLTIP_STOPS"] = "Via:" -- flown over, the gryphon does not land there
 
 L["ROUTE_USAGE"] = "Usage: /ft route <partial name>"
 L["ROUTE_NO_MATCH"] = "No matching route for '%s'"
@@ -124,7 +124,7 @@ if locale == "deDE" then
 	L["ROUTE_VIA"] = "über"
 	L["ROUTE_HEADER"] = "Passende Routen:"
     L["LOADED"] = "geladen! Nutze /ft für Optionen."
-	L["TOOLTIP_STOPS"] = "Zwischenstopps:"
+	L["TOOLTIP_STOPS"] = "Über:"
     L["ENABLED"] = "Aktiviert"
     L["DISABLED"] = "Deaktiviert"
     L["ESTIMATE_ON"] = "Zeitschätzungen aktiviert"
@@ -257,7 +257,7 @@ elseif locale == "frFR" then
     L["DEBUG_ON_TAXI"] = "  UnitOnTaxi: %s"
     L["DEBUG_LEARNING"] = "  Apprentissage: %s"
     L["DEBUG_MEASURED_COUNT"] = "  Routes mesurées: %d"
-	L["TOOLTIP_STOPS"] = "Escales :"
+	L["TOOLTIP_STOPS"] = "Via :"
 
     -- Minimap & Options
     L["MINIMAP_TOOLTIP_TITLE"] = "Paramètres de FlyTimes"
@@ -299,7 +299,7 @@ elseif locale == "esES" or locale == "esMX" then
 	L["ROUTE_HEADER"] = "Rutas coincidentes:"
 	L["LOADED"] = "¡cargado! Usa /ft para opciones."
     L["ENABLED"] = "Activado"
-	L["TOOLTIP_STOPS"] = "Paradas:"
+	L["TOOLTIP_STOPS"] = "Vía:"
     L["DISABLED"] = "Desactivado"
     L["ESTIMATE_ON"] = "Mensajes de estimación activados"
     L["ESTIMATE_OFF"] = "Mensajes de estimación desactivados"
@@ -386,7 +386,7 @@ elseif locale == "ruRU" then
 	L["ROUTE_HEADER"] = "Найденные маршруты:"
 	L["LOADED"] = "загружен! Используйте /ft для настроек."
     L["ENABLED"] = "Включено"
-	L["TOOLTIP_STOPS"] = "Остановки:"
+	L["TOOLTIP_STOPS"] = "Через:"
     L["DISABLED"] = "Выключено"
     L["ESTIMATE_ON"] = "Сообщения о времени включены"
     L["ESTIMATE_OFF"] = "Сообщения о времени выключены"
@@ -473,7 +473,7 @@ elseif locale == "zhCN" then
 	L["ROUTE_HEADER"] = "匹配的路线:"
     L["LOADED"] = "已加载！使用 /ft 查看选项。"
     L["ENABLED"] = "已启用"
-	L["TOOLTIP_STOPS"] = "经停站："
+	L["TOOLTIP_STOPS"] = "途经："
     L["DISABLED"] = "已禁用"
     L["ESTIMATE_ON"] = "预估消息已启用"
     L["ESTIMATE_OFF"] = "预估消息已禁用"

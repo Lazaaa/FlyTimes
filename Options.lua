@@ -1,5 +1,13 @@
 -- FlyTimes Options Panel
--- Classic WoW style with live style previews
+-- Flat dark look in the style of the client's own settings window
+-- (sidebar with sections on the left, content on the right).
+--
+-- Emberveil client notes, all handled here:
+--   * frames anchored by two points collapse: one anchor + fixed size only
+--   * StartMoving() snaps back on release: the window is moved by hand
+--   * SetTextColor on template fonts recolours the shared font object:
+--     only own fonts (CreateFontString without template + SetFont)
+--   * CheckButton lacks SetCheckedTexture: checkboxes are plain Buttons
 
 FlyTimes = FlyTimes or {}
 local FTT = FlyTimes
@@ -8,32 +16,94 @@ local L = FTT.L or {}
 local optionsFrame = nil
 local styleButtons = {}
 local generalChecks = {}
+local pages = {}
+local navItems = {}
+
+local FONT = "Fonts\\FRIZQT__.TTF"
+local FLAT = "Interface\\Tooltips\\UI-Tooltip-Background" -- plain fill, known to load here
+
+local W, H = 600, 400          -- window
+local NAV_W = 160              -- sidebar width
+local HEAD_H = 48              -- header height
+local FOOT_H = 44              -- footer height
+local PAGE_W = W - NAV_W - 24
+local PAGE_H = H - HEAD_H - FOOT_H - 8
+
+-- colours
+local GOLD = { 1, 0.78, 0.1 }
+local TEXT = { 0.92, 0.9, 0.84 }
+local MUTED = { 0.55, 0.57, 0.6 }
 
 -- =====================================================
---  CHECKBOX HELPER
+--  SMALL HELPERS
+-- =====================================================
+
+local function text(parent, size, color, layer)
+    local fs = parent:CreateFontString(nil, layer or "OVERLAY")
+    fs:SetFont(FONT, size or 12)
+    fs:SetJustifyH("LEFT")
+    fs:SetShadowOffset(1, -1)
+    fs:SetShadowColor(0, 0, 0, 1)
+    local c = color or TEXT
+    fs:SetTextColor(c[1], c[2], c[3])
+    return fs
+end
+
+-- flat coloured rectangle, one anchor + size
+local function rect(parent, layer, point, rel, relPoint, x, y, w, h, r, g, b, a)
+    local t = parent:CreateTexture(nil, layer or "BACKGROUND")
+    t:SetTexture(FLAT)
+    t:SetVertexColor(r, g, b, a or 1)
+    t:SetPoint(point, rel, relPoint, x, y)
+    t:SetWidth(w)
+    t:SetHeight(h)
+    return t
+end
+
+local function panel(frame, r, g, b, a, br, bg, bb)
+    frame:SetBackdrop({
+        bgFile = FLAT,
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    frame:SetBackdropColor(r, g, b, a)
+    frame:SetBackdropBorderColor(br or 0.22, bg or 0.26, bb or 0.3, 1)
+end
+
+-- =====================================================
+--  CHECKBOX (plain Button: dark square with a gold check)
 -- =====================================================
 
 local function CreateCheckbox(parent, x, y, labelText, onClickFunc)
-    -- Built from a plain Button + textures: the Emberveil client's CheckButton
-    -- lacks SetCheckedTexture, so no CheckButton template/methods are used.
     local cb = CreateFrame("Button", nil, parent)
-    cb:SetWidth(24)
-    cb:SetHeight(24)
+    cb:SetWidth(PAGE_W - 40)
+    cb:SetHeight(22)
     cb:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
 
-    cb.box = cb:CreateTexture(nil, "ARTWORK")
-    cb.box:SetAllPoints(cb)
-    cb.box:SetTexture("Interface\\Buttons\\UI-CheckBox-Up")
-    cb.mark = cb:CreateTexture(nil, "OVERLAY")
-    cb.mark:SetAllPoints(cb)
-    cb.mark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
-    cb.mark:Hide()
-    local hl = cb:CreateTexture(nil, "HIGHLIGHT")
-    hl:SetAllPoints(cb)
-    hl:SetTexture("Interface\\Buttons\\UI-CheckBox-Highlight")
-    hl:SetBlendMode("ADD")
+    -- the box
+    local box = CreateFrame("Frame", nil, cb)
+    box:SetWidth(18)
+    box:SetHeight(18)
+    box:SetPoint("LEFT", cb, "LEFT", 0, 0)
+    panel(box, 0.03, 0.04, 0.05, 1, 0.35, 0.37, 0.4)
+    box:EnableMouse(false)
 
-    -- same calls as a real CheckButton, so the rest of the file is unchanged
+    cb.mark = box:CreateTexture(nil, "OVERLAY")
+    cb.mark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+    cb.mark:SetWidth(24)
+    cb.mark:SetHeight(24)
+    cb.mark:SetPoint("CENTER", box, "CENTER", 1, 1)
+    cb.mark:Hide()
+
+    local label = text(cb, 12, TEXT)
+    label:SetPoint("LEFT", cb, "LEFT", 28, 0)
+    label:SetText(labelText)
+
+    -- hover: label turns gold
+    cb:SetScript("OnEnter", function() label:SetTextColor(GOLD[1], GOLD[2], GOLD[3]) end)
+    cb:SetScript("OnLeave", function() label:SetTextColor(TEXT[1], TEXT[2], TEXT[3]) end)
+
     cb.SetChecked = function(self, checked)
         self.checked = checked and 1 or nil
         if self.checked then self.mark:Show() else self.mark:Hide() end
@@ -44,14 +114,26 @@ local function CreateCheckbox(parent, x, y, labelText, onClickFunc)
         this:SetChecked(not this.checked)
         onClickFunc()
     end)
-
-    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    label:SetPoint("LEFT", cb, "RIGHT", 6, 0)
-    label:SetText(labelText)
-    label:SetTextColor(0.9, 0.9, 0.9)
-    label:SetJustifyH("LEFT")
-
     return cb, label
+end
+
+-- client-styled button (the client draws UIPanelButtonTemplate in its own look)
+local function CreateButton(parent, label, w, point, rel, relPoint, x, y, onClick)
+    local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    b:SetWidth(w)
+    b:SetHeight(24)
+    b:SetPoint(point, rel, relPoint, x, y)
+    b:SetText(label)
+    b:SetScript("OnClick", onClick)
+    return b
+end
+
+local function sectionHeader(parent, y, label)
+    local h = text(parent, 14, { 1, 1, 1 })
+    h:SetPoint("TOPLEFT", parent, "TOPLEFT", 16, y)
+    h:SetText(label)
+    rect(parent, "ARTWORK", "TOPLEFT", parent, "TOPLEFT", 16, y - 20, PAGE_W - 40, 1, 0.3, 0.33, 0.37, 0.8)
+    return h
 end
 
 -- =====================================================
@@ -59,79 +141,54 @@ end
 -- =====================================================
 
 local function CreateStylePreviewButton(parent, styleKey, x, y, width, height)
-    -- Height reserved for the style name label at the bottom
-    local LABEL_HEIGHT = 16
-
+    local LABEL_H = 16
     local btn = CreateFrame("Button", nil, parent)
     btn:SetWidth(width)
     btn:SetHeight(height)
     btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    panel(btn, 0.04, 0.05, 0.06, 1)
 
-    -- Outer dark background (button frame)
-    local border = btn:CreateTexture(nil, "BACKGROUND")
-    border:SetAllPoints()
-    border:SetTexture(0.05, 0.05, 0.05, 0.9)
+    local style = FTT.BarStyles and FTT.BarStyles.styles and FTT.BarStyles.styles[styleKey]
 
-    -- Inner area (mini bar background)
-    local inner = btn:CreateTexture(nil, "BACKGROUND", nil, 1)
-    inner:SetPoint("TOPLEFT", btn, "TOPLEFT", 2, -2)
-    inner:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -2, 2)
-    inner:SetTexture(0.15, 0.15, 0.15, 0.9)
-
-    -- Mini progress bar, only fills the TOP part of the button
+    -- mini bar background + bar (one anchor + size)
+    local bh = height - LABEL_H - 10
+    local bw = width - 12
+    local bgc = style and style.barBgColor or { 0.15, 0.15, 0.15, 0.9 }
+    rect(btn, "ARTWORK", "TOPLEFT", btn, "TOPLEFT", 6, -5, bw, bh, bgc[1], bgc[2], bgc[3], bgc[4] or 1)
     local bar = CreateFrame("StatusBar", nil, btn)
-    bar:SetPoint("TOPLEFT", btn, "TOPLEFT", 3, -3)
-    bar:SetPoint("TOPRIGHT", btn, "TOPRIGHT", -3, -3)
-    bar:SetHeight(height - LABEL_HEIGHT - 6)
+    bar:SetPoint("TOPLEFT", btn, "TOPLEFT", 6, -5)
+    bar:SetWidth(bw)
+    bar:SetHeight(bh)
     bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
     bar:SetMinMaxValues(0, 100)
     bar:SetValue(70)
+    if style then bar:SetStatusBarColor(style.barColor[1], style.barColor[2], style.barColor[3]) end
 
-    -- Style name at the BOTTOM of the button
-    local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    label:SetPoint("BOTTOM", btn, "BOTTOM", 0, 2)
-    label:SetTextColor(1, 1, 1)
-    label:SetShadowOffset(1, -1)
-    label:SetShadowColor(0, 0, 0, 1)
+    local label = text(btn, 10, TEXT)
+    label:SetPoint("BOTTOM", btn, "BOTTOM", 0, 4)
+    label:SetJustifyH("CENTER")
+    label:SetText(style and style.name or styleKey)
+    btn.label = label
 
-    -- Selection overlay (shown when this is the current style)
-    btn.selected = btn:CreateTexture(nil, "OVERLAY")
-    btn.selected:SetAllPoints(btn)
-    btn.selected:SetTexture(1, 0.82, 0, 0.5)
+    -- selected: gold frame + gold name
+    btn.selected = CreateFrame("Frame", nil, btn)
+    btn.selected:SetWidth(width + 4)
+    btn.selected:SetHeight(height + 4)
+    btn.selected:SetPoint("CENTER", btn, "CENTER", 0, 0)
+    btn.selected:SetBackdrop({ edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12 })
+    btn.selected:SetBackdropBorderColor(GOLD[1], GOLD[2], GOLD[3], 1)
     btn.selected:Hide()
 
-    -- Hover highlight
-    local highlight = btn:CreateTexture(nil, "HIGHLIGHT")
-    highlight:SetAllPoints(btn)
-    highlight:SetTexture(1, 0.82, 0, 0.3)
-
-    -- Apply the style's colors to the preview
-    local style = FTT.BarStyles and FTT.BarStyles.styles and FTT.BarStyles.styles[styleKey]
-    if style then
-        bar:SetStatusBarColor(style.barColor[1], style.barColor[2], style.barColor[3])
-        if style.barBgColor then
-            inner:SetTexture(style.barBgColor[1], style.barBgColor[2], style.barBgColor[3], style.barBgColor[4] or 1)
-        end
-        label:SetText(style.name or styleKey)
-    else
-        label:SetText(styleKey)
-    end
-
-    -- On click: apply the style
     btn:SetScript("OnClick", function()
         FlyTimesDB.barStyle = styleKey
-        local frame = FTT.timerFrame or _G["FlyTimesFrame"]
+        local frame = FTT.timerFrame or getglobal("FlyTimesFrame")
         if FTT.BarStyles and frame then
             FTT.BarStyles:ApplyStyle(styleKey, frame)
         end
-        DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff00ff00%s:|r " ..
-            (L["STYLE_CHANGED"] or "Bar style changed to %s"),
-            L["ADDON_NAME"] or "FlyTimes", styleKey))
         FTT.Options_UpdateSelection()
     end)
-
-    -- Tooltip with style name and description
     btn:SetScript("OnEnter", function()
+        if not btn.isSelected then label:SetTextColor(GOLD[1], GOLD[2], GOLD[3]) end
         GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
         if style then
             GameTooltip:SetText(style.name, 1, 0.82, 0)
@@ -141,30 +198,101 @@ local function CreateStylePreviewButton(parent, styleKey, x, y, width, height)
         end
         GameTooltip:Show()
     end)
-
     btn:SetScript("OnLeave", function()
+        if not btn.isSelected then label:SetTextColor(TEXT[1], TEXT[2], TEXT[3]) end
         GameTooltip:Hide()
     end)
-
     return btn
 end
 
 -- =====================================================
---  TAB HELPER
+--  MOVING BY HAND (StartMoving snaps back on this client)
 -- =====================================================
 
-local function CreateTab(parent, labelText, width, anchorTo, anchorPoint, xOffset)
-    local tab = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    tab:SetWidth(width)
-    tab:SetHeight(22)
-    if anchorTo then
-        tab:SetPoint(anchorPoint, anchorTo, "RIGHT", xOffset or 2, 0)
-    else
-        tab:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -32)
-    end
-    tab:SetText(labelText)
+local drag
 
-    return tab
+local function cursorScale(f, cx, cy)
+    local ok, s = pcall(UIParent.GetEffectiveScale, UIParent)
+    if not ok or not s or s <= 0 then s = 1 end
+    local l, r, t, b = f:GetLeft(), f:GetRight(), f:GetTop(), f:GetBottom()
+    if l and r and t and b then
+        local cands = { s, 1 }
+        for i = 1, 2 do
+            local x, y = cx / cands[i], cy / cands[i]
+            if x >= l - 4 and x <= r + 4 and y >= b - 4 and y <= t + 4 then return cands[i] end
+        end
+    end
+    return s
+end
+
+local function place(f, x, y)
+    f:ClearAllPoints()
+    f:SetPoint("CENTER", UIParent, "CENTER", x, y)
+end
+
+local function startDrag(f)
+    if not GetCursorPosition then return end
+    local cx, cy = GetCursorPosition()
+    if not cx then return end
+    local x, y = f:GetCenter()
+    local ux, uy = UIParent:GetCenter()
+    drag = { f = f, sx = cx, sy = cy, x = (x or 0) - (ux or 0), y = (y or 0) - (uy or 0), s = cursorScale(f, cx, cy) }
+end
+
+local function updateDrag()
+    if not drag then return end
+    local cx, cy = GetCursorPosition()
+    if not cx then return end
+    drag.cx = drag.x + (cx - drag.sx) / drag.s
+    drag.cy = drag.y + (cy - drag.sy) / drag.s
+    place(drag.f, drag.cx, drag.cy)
+end
+
+local function stopDrag()
+    if not drag then return end
+    place(drag.f, math.floor((drag.cx or drag.x) + 0.5), math.floor((drag.cy or drag.y) + 0.5))
+    drag = nil
+end
+
+-- =====================================================
+--  NAVIGATION
+-- =====================================================
+
+local function showPage(key)
+    for k, p in pairs(pages) do
+        if k == key then p:Show() else p:Hide() end
+    end
+    for k, item in pairs(navItems) do
+        local on = (k == key)
+        if on then
+            item.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+            item.accent:Show()
+            item.bg:Show()
+        else
+            item.label:SetTextColor(TEXT[1], TEXT[2], TEXT[3])
+            item.accent:Hide()
+            item.bg:Hide()
+        end
+        item.on = on
+    end
+    if key == "styles" then FTT.Options_UpdateSelection() end
+end
+
+local function navItem(nav, key, label, index)
+    local b = CreateFrame("Button", nil, nav)
+    b:SetWidth(NAV_W - 12)
+    b:SetHeight(26)
+    b:SetPoint("TOPLEFT", nav, "TOPLEFT", 6, -10 - (index - 1) * 28)
+    b.bg = rect(b, "BACKGROUND", "TOPLEFT", b, "TOPLEFT", 0, 0, NAV_W - 12, 26, 1, 0.78, 0.1, 0.08)
+    b.accent = rect(b, "ARTWORK", "TOPLEFT", b, "TOPLEFT", 0, 0, 3, 26, GOLD[1], GOLD[2], GOLD[3], 1)
+    b.label = text(b, 13, TEXT)
+    b.label:SetPoint("LEFT", b, "LEFT", 14, 0)
+    b.label:SetText(label)
+    b:SetScript("OnClick", function() showPage(key) end)
+    b:SetScript("OnEnter", function() if not b.on then b.label:SetTextColor(1, 1, 1) end end)
+    b:SetScript("OnLeave", function() if not b.on then b.label:SetTextColor(TEXT[1], TEXT[2], TEXT[3]) end end)
+    navItems[key] = b
+    return b
 end
 
 -- =====================================================
@@ -175,218 +303,153 @@ local function BuildOptionsFrame()
     if optionsFrame then return end
 
     local f = CreateFrame("Frame", "FlyTimesOptionsFrame", UIParent)
-    f:SetWidth(520)
-    f:SetHeight(350)
-    f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-    f:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 }
-    })
-    f:SetBackdropColor(0.05, 0.05, 0.05, 0.95)
-    f:SetBackdropBorderColor(0.6, 0.5, 0.2, 1)
-    f:SetMovable(true)
+    f:SetWidth(W)
+    f:SetHeight(H)
+    place(f, 0, 0)
+    panel(f, 0.07, 0.085, 0.1, 0.97, 0.28, 0.32, 0.36)
     f:EnableMouse(true)
     f:SetFrameStrata("DIALOG")
     f:SetToplevel(true)
     f:SetClampedToScreen(true)
-    f:RegisterForDrag("LeftButton")
-    f:SetScript("OnDragStart", function() this:StartMoving() end)
-    f:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
+    f:SetScript("OnHide", stopDrag)
     f:Hide()
+    table.insert(UISpecialFrames, "FlyTimesOptionsFrame") -- Esc closes it
 
-    -- Title
-    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", 0, -10)
-    title:SetText(L["OPTIONS_TITLE"] or "FlyTimes - Settings")
-    title:SetTextColor(1, 0.82, 0)
-
-    -- Author / Version
-    local sub = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    sub:SetPoint("TOP", title, "BOTTOM", 0, -2)
-    sub:SetText(string.format("%s: %s | %s: %s",
-        L["OPT_AUTHOR"] or "Author", FTT.AUTHOR or "?",
-        L["OPT_VERSION"] or "Version", FTT.VERSION or "?"))
-    sub:SetTextColor(0.6, 0.6, 0.6)
-
-    -- Tabs
-    local generalTab = CreateTab(f, L["OPTIONS_TAB_GENERAL"] or "General", 90, nil, nil, 0)
-    local stylesTab = CreateTab(f, L["OPTIONS_TAB_STYLES"] or "Styles", 90, generalTab, "LEFT", 4)
-
-    -- Content frames
-    local generalContent = CreateFrame("Frame", nil, f)
-    generalContent:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -62)
-    generalContent:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 44)
-
-    local stylesContent = CreateFrame("Frame", nil, f)
-    stylesContent:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -62)
-    stylesContent:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 44)
-    stylesContent:Hide()
-
-    f.generalContent = generalContent
-    f.stylesContent = stylesContent
-
-    -- Tab click handlers
-    generalTab:SetScript("OnClick", function()
-        generalContent:Show()
-        stylesContent:Hide()
+    -- header (drag handle): addon name + version, like "Unreal UI v0.12.0"
+    local head = CreateFrame("Button", nil, f)
+    head:SetWidth(W - 16)
+    head:SetHeight(HEAD_H - 8)
+    head:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -6)
+    head:SetScript("OnMouseDown", function()
+        if drag then stopDrag() return end -- release got lost: next press drops
+        startDrag(f)
     end)
-    stylesTab:SetScript("OnClick", function()
-        generalContent:Hide()
-        stylesContent:Show()
-        FTT.Options_UpdateSelection()
+    head:SetScript("OnMouseUp", stopDrag)
+    head:SetScript("OnUpdate", updateDrag)
+
+    local icon = head:CreateTexture(nil, "ARTWORK")
+    icon:SetTexture("Interface\\AddOns\\FlyTimes\\gryphon2")
+    icon:SetWidth(26)
+    icon:SetHeight(26)
+    icon:SetPoint("LEFT", head, "LEFT", 6, 0)
+
+    local title = text(head, 18, { 1, 1, 1 })
+    title:SetPoint("LEFT", head, "LEFT", 40, 0)
+    title:SetText("FlyTimes")
+    local ver = text(head, 14, MUTED)
+    ver:SetPoint("LEFT", title, "RIGHT", 8, -1)
+    ver:SetText("v" .. (FTT.VERSION or "?"))
+    local author = text(head, 11, MUTED)
+    author:SetPoint("RIGHT", head, "RIGHT", -8, 0)
+    author:SetJustifyH("RIGHT")
+    author:SetText((L["OPT_AUTHOR"] or "Author") .. ": " .. (FTT.AUTHOR or "?"))
+
+    rect(f, "ARTWORK", "TOPLEFT", f, "TOPLEFT", 6, -HEAD_H, W - 12, 1, 0.28, 0.32, 0.36, 1)
+
+    -- sidebar
+    local nav = CreateFrame("Frame", nil, f)
+    nav:SetWidth(NAV_W)
+    nav:SetHeight(H - HEAD_H - FOOT_H)
+    nav:SetPoint("TOPLEFT", f, "TOPLEFT", 4, -HEAD_H - 1)
+    rect(nav, "BACKGROUND", "TOPLEFT", nav, "TOPLEFT", 0, 0, NAV_W, H - HEAD_H - FOOT_H, 0.035, 0.045, 0.055, 0.9)
+    rect(nav, "ARTWORK", "TOPRIGHT", nav, "TOPRIGHT", 0, 0, 1, H - HEAD_H - FOOT_H, 0.28, 0.32, 0.36, 1)
+    navItem(nav, "general", L["OPTIONS_TAB_GENERAL"] or "General", 1)
+    navItem(nav, "styles", L["OPT_STYLE_LABEL"] or "Bar style", 2)
+
+    -- pages (one anchor + size)
+    local function newPage(key)
+        local p = CreateFrame("Frame", nil, f)
+        p:SetWidth(PAGE_W)
+        p:SetHeight(PAGE_H)
+        p:SetPoint("TOPLEFT", f, "TOPLEFT", NAV_W + 12, -HEAD_H - 6)
+        p:Hide()
+        pages[key] = p
+        return p
+    end
+
+    -- ---------------- General ----------------
+    local g = newPage("general")
+    sectionHeader(g, -6, L["OPT_HEADER_GENERAL"] or "General Options")
+
+    generalChecks.enabled = CreateCheckbox(g, 18, -36, L["OPT_ENABLE"] or "Enable addon", function()
+        FlyTimesDB.enabled = this:GetChecked() and true or false
+    end)
+    generalChecks.learning = CreateCheckbox(g, 18, -62, L["OPT_LEARNING"] or "Auto-learning (measure flight times)", function()
+        FlyTimesDB.learningEnabled = this:GetChecked() and true or false
+    end)
+    generalChecks.estimate = CreateCheckbox(g, 18, -88, L["OPT_ESTIMATE"] or "Show chat estimate messages", function()
+        FlyTimesDB.showEstimate = this:GetChecked() and true or false
     end)
 
-    -- =====================================================
-    --  GENERAL TAB CONTENT
-    -- =====================================================
+    sectionHeader(g, -128, L["OPT_HEADER_APPEARANCE"] or "Appearance")
 
-    local generalHeader = generalContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    generalHeader:SetPoint("TOPLEFT", generalContent, "TOPLEFT", 16, -8)
-    generalHeader:SetText(L["OPT_HEADER_GENERAL"] or "General Options")
-    generalHeader:SetTextColor(1, 0.82, 0)
-
-    -- Checkboxes
-    local cb1 = CreateCheckbox(generalContent, 20, -34,
-        L["OPT_ENABLE"] or "Enable addon",
-        function()
-            FlyTimesDB.enabled = this:GetChecked() and true or false
+    local resetBtn = CreateButton(g, L["OPT_RESET_POS"] or "Reset bar position", 190,
+        "TOPLEFT", g, "TOPLEFT", 18, -160, function()
+            local frame = FTT.timerFrame or getglobal("FlyTimesFrame")
+            if frame then
+                frame:ClearAllPoints()
+                frame:SetPoint("CENTER", UIParent, "CENTER", 0, 200)
+            end
+            FlyTimesDB.posX = 0
+            FlyTimesDB.posY = 200
+            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00FlyTimes:|r " .. (L["POSITION_RESET"] or "Position reset"))
         end)
-    generalChecks.enabled = cb1
+    CreateButton(g, L["OPT_CLEAR_MEASURED"] or "Clear measured data", 190,
+        "LEFT", resetBtn, "RIGHT", 10, 0, function() FTT.ClearMeasured() end)
 
-    local cb2 = CreateCheckbox(generalContent, 20, -62,
-        L["OPT_LEARNING"] or "Auto-learning (measure flight times)",
-        function()
-            FlyTimesDB.learningEnabled = this:GetChecked() and true or false
-        end)
-    generalChecks.learning = cb2
-
-    local cb3 = CreateCheckbox(generalContent, 20, -90,
-        L["OPT_ESTIMATE"] or "Show chat estimate messages",
-        function()
-            FlyTimesDB.showEstimate = this:GetChecked() and true or false
-        end)
-    generalChecks.estimate = cb3
-
-    -- Appearance section header
-    local appHeader = generalContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    appHeader:SetPoint("TOPLEFT", generalContent, "TOPLEFT", 16, -130)
-    appHeader:SetText(L["OPT_HEADER_APPEARANCE"] or "Appearance")
-    appHeader:SetTextColor(1, 0.82, 0)
-
-    -- Reset position button
-    local resetPosBtn = CreateFrame("Button", nil, generalContent, "UIPanelButtonTemplate")
-    resetPosBtn:SetWidth(220)
-    resetPosBtn:SetHeight(24)
-    resetPosBtn:SetPoint("TOPLEFT", generalContent, "TOPLEFT", 20, -158)
-    resetPosBtn:SetText(L["OPT_RESET_POS"] or "Reset bar position")
-    resetPosBtn:SetScript("OnClick", function()
-        local frame = FTT.timerFrame or _G["FlyTimesFrame"]
-        if frame then
-            frame:ClearAllPoints()
-            frame:SetPoint("CENTER", UIParent, "CENTER", 0, 200)
-        end
-        FlyTimesDB.posX = 0
-        FlyTimesDB.posY = 200
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00FlyTimes:|r " .. (L["POSITION_RESET"] or "Position reset"))
-    end)
-
-    -- Clear measured data button (directly below the reset button)
-    local clearBtn = CreateFrame("Button", nil, generalContent, "UIPanelButtonTemplate")
-    clearBtn:SetWidth(220)
-    clearBtn:SetHeight(24)
-    clearBtn:SetPoint("TOPLEFT", resetPosBtn, "BOTTOMLEFT", 0, -8)
-    clearBtn:SetText(L["OPT_CLEAR_MEASURED"] or "Clear measured data")
-    clearBtn:SetScript("OnClick", function()
-        FTT.ClearMeasured()
-    end)
-
-    -- Command hint (directly below the two buttons)
-    local hint = generalContent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hint:SetPoint("TOPLEFT", clearBtn, "BOTTOMLEFT", 0, -10)
+    local hint = text(g, 11, MUTED)
+    hint:SetPoint("TOPLEFT", g, "TOPLEFT", 18, -198)
+    hint:SetWidth(PAGE_W - 40)
     hint:SetText(L["OPT_CMD_HINT"] or "All settings are also available via /ft commands.")
-    hint:SetTextColor(0.6, 0.6, 0.6)
-    hint:SetWidth(480)
-    hint:SetJustifyH("LEFT")
 
-    -- =====================================================
-    --  STYLES TAB CONTENT
-    -- =====================================================
+    -- ---------------- Bar style ----------------
+    local s = newPage("styles")
+    sectionHeader(s, -6, L["OPT_STYLE_LABEL"] or "Bar style")
+    local sh = text(s, 11, MUTED)
+    sh:SetPoint("TOPLEFT", s, "TOPLEFT", 16, -32)
+    sh:SetText(L["OPT_STYLE_CLICK"] or "Click a style below to preview and apply")
 
-    local stylesHeader = stylesContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    stylesHeader:SetPoint("TOPLEFT", stylesContent, "TOPLEFT", 16, -8)
-    stylesHeader:SetText(L["OPT_STYLE_LABEL"] or "Bar style")
-    stylesHeader:SetTextColor(1, 0.82, 0)
-
-    local stylesHint = stylesContent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    stylesHint:SetPoint("TOPLEFT", stylesContent, "TOPLEFT", 16, -26)
-    stylesHint:SetText(L["OPT_STYLE_CLICK"] or "Click a style below to preview and apply")
-    stylesHint:SetTextColor(0.6, 0.6, 0.6)
-
-    -- Style preview grid: 5 columns x 2 rows = 10 styles
     local styleOrder = {
         "classic", "minimalist", "modern", "glass", "fantasy",
         "neon", "cyberpunk", "glowing", "retro", "dragonball",
     }
-
-    local buttonW = 84
-    local buttonH = 56
-    local spacingX = 6
-    local spacingY = 8
-    local startX = 16
-    local startY = -48
-
+    local bw, bh, gap = 74, 54, 8
     for index, key in ipairs(styleOrder) do
         local col = (index - 1) - math.floor((index - 1) / 5) * 5
         local row = math.floor((index - 1) / 5)
-        local x = startX + col * (buttonW + spacingX)
-        local y = startY - row * (buttonH + spacingY)
-
-        local btn = CreateStylePreviewButton(stylesContent, key, x, y, buttonW, buttonH)
-        styleButtons[key] = btn
+        styleButtons[key] = CreateStylePreviewButton(s, key,
+            16 + col * (bw + gap), -54 - row * (bh + gap), bw, bh)
     end
 
-    -- =====================================================
-    --  CLOSE BUTTON (bottom, always visible on both tabs)
-    -- =====================================================
-
-    local closeBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    closeBtn:SetWidth(100)
-    closeBtn:SetHeight(24)
-    closeBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 12)
-    closeBtn:SetText(L["OPT_CLOSE"] or "Close")
-    closeBtn:SetScript("OnClick", function()
-        f:Hide()
-    end)
+    -- footer
+    rect(f, "ARTWORK", "BOTTOMLEFT", f, "BOTTOMLEFT", 6, FOOT_H, W - 12, 1, 0.28, 0.32, 0.36, 1)
+    CreateButton(f, L["OPT_CLOSE"] or "Close", 110, "BOTTOMRIGHT", f, "BOTTOMRIGHT", -14, 10,
+        function() f:Hide() end)
 
     optionsFrame = f
+    showPage("general")
 end
 
 -- =====================================================
---  UPDATE SELECTION HIGHLIGHT
+--  UPDATE STATE
 -- =====================================================
 
 function FTT.Options_UpdateSelection()
     if not optionsFrame then return end
 
-    -- Update checkbox states
-    if generalChecks.enabled then
-        generalChecks.enabled:SetChecked(FlyTimesDB.enabled and true or false)
-    end
-    if generalChecks.learning then
-        generalChecks.learning:SetChecked(FlyTimesDB.learningEnabled and true or false)
-    end
-    if generalChecks.estimate then
-        generalChecks.estimate:SetChecked(FlyTimesDB.showEstimate and true or false)
-    end
+    if generalChecks.enabled then generalChecks.enabled:SetChecked(FlyTimesDB.enabled) end
+    if generalChecks.learning then generalChecks.learning:SetChecked(FlyTimesDB.learningEnabled) end
+    if generalChecks.estimate then generalChecks.estimate:SetChecked(FlyTimesDB.showEstimate) end
 
-    -- Highlight the currently active style
     for key, btn in pairs(styleButtons) do
-        if key == FlyTimesDB.barStyle then
+        local on = (key == FlyTimesDB.barStyle)
+        btn.isSelected = on
+        if on then
             btn.selected:Show()
+            btn.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
         else
             btn.selected:Hide()
+            btn.label:SetTextColor(TEXT[1], TEXT[2], TEXT[3])
         end
     end
 end
@@ -396,10 +459,7 @@ end
 -- =====================================================
 
 function FTT.Options_Toggle()
-    if not optionsFrame then
-        BuildOptionsFrame()
-    end
-
+    if not optionsFrame then BuildOptionsFrame() end
     if optionsFrame:IsShown() then
         optionsFrame:Hide()
     else
@@ -409,14 +469,13 @@ function FTT.Options_Toggle()
 end
 
 -- =====================================================
---  HOOK INTO ADDON_LOADED
+--  BUILD AFTER ADDON_LOADED (BarStyles must be loaded)
 -- =====================================================
 
 local evFrame = CreateFrame("Frame")
 evFrame:RegisterEvent("ADDON_LOADED")
 evFrame:SetScript("OnEvent", function()
     if arg1 == "FlyTimes" then
-        -- Delay build until BarStyles is fully loaded
         local delay = CreateFrame("Frame")
         local t = 0
         delay:SetScript("OnUpdate", function()
