@@ -7,7 +7,7 @@ FTT.L = FTT.L or {}
 local L = FTT.L
 
 FTT.AUTHOR = "Kharon"
-FTT.VERSION = "1.1.8"
+FTT.VERSION = "1.2.1"
 
 -- Get client locale
 local locale = GetLocale()

@@ -286,42 +286,52 @@ FlyTimes.FlightRoutes["CLASSIC"]["Horde"] = {
 FlyTimes.FlightRoutes["CLASSIC"]["Alliance"] = {
 
     ["Stormwind, Elwynn"] = {
-        ["Refuge Pointe, Arathi"] = {"Ironforge, Dun Morogh", "Menethil Harbor, Wetlands"},
-        ["Southshore, Hillsbrad"] = {"Ironforge, Dun Morogh", "Menethil Harbor, Wetlands"},
+        ["Refuge Pointe, Arathi"] = {"Ironforge, Dun Morogh"},  -- read from the Emberveil flight map
+        ["Southshore, Hillsbrad"] = {"Ironforge, Dun Morogh"},  -- read from the Emberveil flight map
         ["Aerie Peak, The Hinterlands"] = {"Ironforge, Dun Morogh", "Menethil Harbor, Wetlands", "Southshore, Hillsbrad"},
         ["Chillwind Camp, Western Plaguelands"] = {"Ironforge, Dun Morogh", "Menethil Harbor, Wetlands", "Southshore, Hillsbrad"},
         ["Light's Hope Chapel, Eastern Plaguelands"] = {"Ironforge, Dun Morogh", "Menethil Harbor, Wetlands", "Southshore, Hillsbrad", "Chillwind Camp, Western Plaguelands"},
         ["Thorium Point, Searing Gorge"] = {"Ironforge, Dun Morogh"},
-        ["Booty Bay, Stranglethorn"] = {"Darkshire, Duskwood"},
+        ["Booty Bay, Stranglethorn"] = {},  -- read from the Emberveil flight map
         ["Nethergarde Keep, Blasted Lands"] = {"Darkshire, Duskwood"},
         ["Darkshire, Duskwood"] = {},
         ["Ironforge, Dun Morogh"] = {},
         ["Lakeshire, Redridge"] = {},
         ["Morgan's Vigil, Burning Steppes"] = {"Lakeshire, Redridge"},
         ["Thelsamar, Loch Modan"] = {"Ironforge, Dun Morogh"},
+        ["Menethil Harbor, Wetlands"] = {"Ironforge, Dun Morogh"},  -- read from the Emberveil flight map
     },
 
     ["Ironforge, Dun Morogh"] = {
         ["Booty Bay, Stranglethorn"] = {"Stormwind, Elwynn"},
         ["Light's Hope Chapel, Eastern Plaguelands"] = {"Menethil Harbor, Wetlands", "Southshore, Hillsbrad", "Chillwind Camp, Western Plaguelands"},
         ["Nethergarde Keep, Blasted Lands"] = {"Stormwind, Elwynn", "Darkshire, Duskwood"},
-        ["Refuge Pointe, Arathi"] = {"Menethil Harbor, Wetlands"},
+        ["Refuge Pointe, Arathi"] = {},
         ["Sentinel Hill, Westfall"] = {"Stormwind, Elwynn"},
-        ["Southshore, Hillsbrad"] = {"Menethil Harbor, Wetlands"},
+        ["Southshore, Hillsbrad"] = {},
         ["Aerie Peak, The Hinterlands"] = {"Menethil Harbor, Wetlands", "Southshore, Hillsbrad"},
         ["Chillwind Camp, Western Plaguelands"] = {"Menethil Harbor, Wetlands", "Southshore, Hillsbrad", "Aerie Peak, The Hinterlands"},
         ["Darkshire, Duskwood"] = {"Stormwind, Elwynn"},
         ["Lakeshire, Redridge"] = {"Stormwind, Elwynn"},
         ["Morgan's Vigil, Burning Steppes"] = {"Stormwind, Elwynn", "Lakeshire, Redridge"},
+        ["Thelsamar, Loch Modan"] = {},
+        ["Stormwind, Elwynn"] = {},
+        ["Menethil Harbor, Wetlands"] = {},
     },
 
     ["Menethil Harbor, Wetlands"] = {
-        ["Booty Bay, Stranglethorn"] = {"Ironforge, Dun Morogh", "Stormwind, Elwynn"},
+        ["Booty Bay, Stranglethorn"] = {"Thelsamar, Loch Modan", "Ironforge, Dun Morogh", "Stormwind, Elwynn"},
         ["Light's Hope Chapel, Eastern Plaguelands"] = {"Southshore, Hillsbrad", "Chillwind Camp, Western Plaguelands"},
         ["Nethergarde Keep, Blasted Lands"] = {"Ironforge, Dun Morogh", "Stormwind, Elwynn", "Darkshire, Duskwood"},
         ["Sentinel Hill, Westfall"] = {"Ironforge, Dun Morogh", "Stormwind, Elwynn"},
-        ["Stormwind, Elwynn"] = {"Ironforge, Dun Morogh"},
+        ["Stormwind, Elwynn"] = {"Thelsamar, Loch Modan", "Ironforge, Dun Morogh"},
         ["Thorium Point, Searing Gorge"] = {"Ironforge, Dun Morogh"},
+        ["Thelsamar, Loch Modan"] = {},
+        ["Lakeshire, Redridge"] = {"Thelsamar, Loch Modan", "Ironforge, Dun Morogh", "Stormwind, Elwynn"},
+        ["Ironforge, Dun Morogh"] = {},
+        ["Southshore, Hillsbrad"] = {},  -- read from the Emberveil flight map
+        ["Refuge Pointe, Arathi"] = {},  -- read from the Emberveil flight map
+        ["Darkshire, Duskwood"] = {"Thelsamar, Loch Modan", "Ironforge, Dun Morogh", "Stormwind, Elwynn"},  -- read from the Emberveil flight map
     },
 
     ["Darkshire, Duskwood"] = {
@@ -329,17 +339,20 @@ FlyTimes.FlightRoutes["CLASSIC"]["Alliance"] = {
         ["Ironforge, Dun Morogh"] = {"Stormwind, Elwynn"},
         ["Light's Hope Chapel, Eastern Plaguelands"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh", "Menethil Harbor, Wetlands", "Southshore, Hillsbrad", "Chillwind Camp, Western Plaguelands"},
         ["Menethil Harbor, Wetlands"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},
-        ["Refuge Pointe, Arathi"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh", "Menethil Harbor, Wetlands"},
-        ["Southshore, Hillsbrad"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh", "Menethil Harbor, Wetlands"},
+        ["Refuge Pointe, Arathi"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},  -- read from the Emberveil flight map
+        ["Southshore, Hillsbrad"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},  -- read from the Emberveil flight map
         ["Thelsamar, Loch Modan"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},
         ["Thorium Point, Searing Gorge"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},
+        ["Booty Bay, Stranglethorn"] = {},  -- read from the Emberveil flight map
+        ["Lakeshire, Redridge"] = {},  -- read from the Emberveil flight map
+        ["Stormwind, Elwynn"] = {},  -- read from the Emberveil flight map
     },
 
     ["Booty Bay, Stranglethorn"] = {
         ["Aerie Peak, The Hinterlands"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh", "Menethil Harbor, Wetlands", "Southshore, Hillsbrad"},
         ["Chillwind Camp, Western Plaguelands"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh", "Menethil Harbor, Wetlands", "Southshore, Hillsbrad"},
         ["Ironforge, Dun Morogh"] = {"Stormwind, Elwynn"},
-        ["Lakeshire, Redridge"] = {"Darkshire, Duskwood"},
+        ["Lakeshire, Redridge"] = {"Stormwind, Elwynn"},
         ["Light's Hope Chapel, Eastern Plaguelands"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh", "Menethil Harbor, Wetlands", "Southshore, Hillsbrad", "Chillwind Camp, Western Plaguelands"},
         ["Menethil Harbor, Wetlands"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},
         ["Morgan's Vigil, Burning Steppes"] = {"Darkshire, Duskwood"},
@@ -347,26 +360,35 @@ FlyTimes.FlightRoutes["CLASSIC"]["Alliance"] = {
         ["Refuge Pointe, Arathi"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh", "Menethil Harbor, Wetlands"},
         ["Sentinel Hill, Westfall"] = {"Stormwind, Elwynn"},
         ["Southshore, Hillsbrad"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh", "Menethil Harbor, Wetlands"},
-        ["Stormwind, Elwynn"] = {"Darkshire, Duskwood"},
+        ["Stormwind, Elwynn"] = {},
         ["Thelsamar, Loch Modan"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},
         ["Thorium Point, Searing Gorge"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},
     },
 
     ["Refuge Pointe, Arathi"] = {
-        ["Booty Bay, Stranglethorn"] = {"Menethil Harbor, Wetlands", "Ironforge, Dun Morogh", "Stormwind, Elwynn"},
+        ["Booty Bay, Stranglethorn"] = {"Thelsamar, Loch Modan", "Ironforge, Dun Morogh", "Stormwind, Elwynn"},
         ["Light's Hope Chapel, Eastern Plaguelands"] = {"Southshore, Hillsbrad", "Chillwind Camp, Western Plaguelands"},
         ["Nethergarde Keep, Blasted Lands"] = {"Menethil Harbor, Wetlands", "Ironforge, Dun Morogh", "Stormwind, Elwynn", "Darkshire, Duskwood"},
         ["Sentinel Hill, Westfall"] = {"Menethil Harbor, Wetlands", "Ironforge, Dun Morogh", "Stormwind, Elwynn"},
-        ["Stormwind, Elwynn"] = {"Menethil Harbor, Wetlands", "Ironforge, Dun Morogh"},
+        ["Stormwind, Elwynn"] = {"Thelsamar, Loch Modan", "Ironforge, Dun Morogh"},
         ["Thorium Point, Searing Gorge"] = {"Menethil Harbor, Wetlands", "Ironforge, Dun Morogh"},
+        ["Thelsamar, Loch Modan"] = {},
+        ["Lakeshire, Redridge"] = {"Thelsamar, Loch Modan", "Ironforge, Dun Morogh", "Stormwind, Elwynn"},
+        ["Menethil Harbor, Wetlands"] = {},
+        ["Ironforge, Dun Morogh"] = {},
     },
 
     ["Southshore, Hillsbrad"] = {
-        ["Booty Bay, Stranglethorn"] = {"Menethil Harbor, Wetlands", "Ironforge, Dun Morogh", "Stormwind, Elwynn"},
+        ["Booty Bay, Stranglethorn"] = {"Ironforge, Dun Morogh", "Stormwind, Elwynn"},
         ["Nethergarde Keep, Blasted Lands"] = {"Menethil Harbor, Wetlands", "Ironforge, Dun Morogh", "Stormwind, Elwynn", "Darkshire, Duskwood"},
         ["Sentinel Hill, Westfall"] = {"Menethil Harbor, Wetlands", "Ironforge, Dun Morogh", "Stormwind, Elwynn"},
-        ["Stormwind, Elwynn"] = {"Menethil Harbor, Wetlands", "Ironforge, Dun Morogh"},
+        ["Stormwind, Elwynn"] = {"Ironforge, Dun Morogh"},
         ["Thorium Point, Searing Gorge"] = {"Menethil Harbor, Wetlands", "Ironforge, Dun Morogh"},
+        ["Thelsamar, Loch Modan"] = {"Ironforge, Dun Morogh"},
+        ["Refuge Pointe, Arathi"] = {},
+        ["Lakeshire, Redridge"] = {"Ironforge, Dun Morogh", "Stormwind, Elwynn"},
+        ["Menethil Harbor, Wetlands"] = {},
+        ["Ironforge, Dun Morogh"] = {},
     },
 
     ["Aerie Peak, The Hinterlands"] = {
@@ -435,20 +457,25 @@ FlyTimes.FlightRoutes["CLASSIC"]["Alliance"] = {
         ["Marshal's Refuge, Un'Goro Crater"] = {"Talrendis Point, Azshara", "Theramore, Dustwallow Marsh", "Gadgetzan, Tanaris"},
         ["Nighthaven, Moonglade"] = {"Auberdine, Darkshore"},
         ["Nijel's Point, Desolace"] = {"Stonetalon Peak, Stonetalon Mountains"},
-        ["Ratchet, The Barrens"] = {"Talrendis Point, Azshara"},
+        ["Ratchet, The Barrens"] = {"Auberdine, Darkshore", "Theramore, Dustwallow Marsh"},
         ["Rut'theran Village, Teldrassil"] = {"Auberdine, Darkshore"},
         ["Talonbranch Glade, Felwood"] = {"Auberdine, Darkshore"},
         ["Thalanaar, Feralas"] = {"Talrendis Point, Azshara", "Theramore, Dustwallow Marsh"},
-        ["Theramore, Dustwallow Marsh"] = {"Talrendis Point, Azshara"},
+        ["Theramore, Dustwallow Marsh"] = {"Auberdine, Darkshore"},
+        ["Auberdine, Darkshore"] = {},
+        ["Stonetalon Peak, Stonetalon Mountains"] = {},
     },
     ["Auberdine, Darkshore"] = {
         ["Cenarion Hold, Silithus"] = {"Feathermoon, Feralas"},
         ["Everlook, Winterspring"] = {"Nighthaven, Moonglade"},
         ["Gadgetzan, Tanaris"] = {"Talrendis Point, Azshara", "Theramore, Dustwallow Marsh"},
         ["Marshal's Refuge, Un'Goro Crater"] = {"Feathermoon, Feralas", "Cenarion Hold, Silithus"},
-        ["Ratchet, The Barrens"] = {"Talrendis Point, Azshara"},
+        ["Ratchet, The Barrens"] = {"Theramore, Dustwallow Marsh"},
         ["Thalanaar, Feralas"] = {"Feathermoon, Feralas"},
-        ["Theramore, Dustwallow Marsh"] = {"Talrendis Point, Azshara"},
+        ["Theramore, Dustwallow Marsh"] = {},
+        ["Astranaar, Ashenvale"] = {},
+        ["Stonetalon Peak, Stonetalon Mountains"] = {},
+        ["Rut'theran Village, Teldrassil"] = {},
     },
     ["Cenarion Hold, Silithus"] = {
         ["Astranaar, Ashenvale"] = {"Feathermoon, Feralas", "Nijel's Point, Desolace", "Stonetalon Peak, Stonetalon Mountains"},
@@ -546,8 +573,8 @@ FlyTimes.FlightRoutes["CLASSIC"]["Alliance"] = {
         ["Thalanaar, Feralas"] = {"Feathermoon, Feralas"},
     },
     ["Ratchet, The Barrens"] = {
-        ["Astranaar, Ashenvale"] = {"Talrendis Point, Azshara"},
-        ["Auberdine, Darkshore"] = {"Talrendis Point, Azshara"},
+        ["Astranaar, Ashenvale"] = {"Theramore, Dustwallow Marsh", "Auberdine, Darkshore"},
+        ["Auberdine, Darkshore"] = {"Theramore, Dustwallow Marsh"},
         ["Cenarion Hold, Silithus"] = {"Theramore, Dustwallow Marsh", "Gadgetzan, Tanaris"},
         ["Everlook, Winterspring"] = {"Talrendis Point, Azshara"},
         ["Feathermoon, Feralas"] = {"Theramore, Dustwallow Marsh", "Thalanaar, Feralas"},
@@ -555,10 +582,11 @@ FlyTimes.FlightRoutes["CLASSIC"]["Alliance"] = {
         ["Marshal's Refuge, Un'Goro Crater"] = {"Theramore, Dustwallow Marsh", "Gadgetzan, Tanaris"},
         ["Nighthaven, Moonglade"] = {"Talrendis Point, Azshara", "Everlook, Winterspring"},
         ["Nijel's Point, Desolace"] = {"Theramore, Dustwallow Marsh"},
-        ["Rut'theran Village, Teldrassil"] = {"Talrendis Point, Azshara", "Auberdine, Darkshore"},
-        ["Stonetalon Peak, Stonetalon Mountains"] = {"Talrendis Point, Azshara", "Astranaar, Ashenvale"},
+        ["Rut'theran Village, Teldrassil"] = {"Theramore, Dustwallow Marsh", "Auberdine, Darkshore"},
+        ["Stonetalon Peak, Stonetalon Mountains"] = {"Theramore, Dustwallow Marsh", "Auberdine, Darkshore"},
         ["Talonbranch Glade, Felwood"] = {"Talrendis Point, Azshara"},
         ["Thalanaar, Feralas"] = {"Theramore, Dustwallow Marsh"},
+        ["Theramore, Dustwallow Marsh"] = {},
     },
     ["Rut'theran Village, Teldrassil"] = {
         ["Astranaar, Ashenvale"] = {"Auberdine, Darkshore"},
@@ -638,5 +666,17 @@ FlyTimes.FlightRoutes["CLASSIC"]["Alliance"] = {
         ["Rut'theran Village, Teldrassil"] = {"Talrendis Point, Azshara", "Auberdine, Darkshore"},
         ["Stonetalon Peak, Stonetalon Mountains"] = {"Nijel's Point, Desolace"},
         ["Talonbranch Glade, Felwood"] = {"Talrendis Point, Azshara"},
+    },
+
+    ["Sentinel Hill, Westfall"] = {
+        ["Thelsamar, Loch Modan"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},
+        ["Booty Bay, Stranglethorn"] = {},  -- read from the Emberveil flight map
+        ["Lakeshire, Redridge"] = {},  -- read from the Emberveil flight map
+        ["Stormwind, Elwynn"] = {},  -- read from the Emberveil flight map
+        ["Ironforge, Dun Morogh"] = {"Stormwind, Elwynn"},  -- read from the Emberveil flight map
+        ["Southshore, Hillsbrad"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},  -- read from the Emberveil flight map
+        ["Refuge Pointe, Arathi"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},  -- read from the Emberveil flight map
+        ["Darkshire, Duskwood"] = {},  -- read from the Emberveil flight map
+        ["Menethil Harbor, Wetlands"] = {"Stormwind, Elwynn", "Ironforge, Dun Morogh"},  -- read from the Emberveil flight map
     },
 }

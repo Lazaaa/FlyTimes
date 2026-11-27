@@ -438,7 +438,9 @@ local function trackDot(i)
         local wps, times = timerFrame.waypoints, timerFrame.waypointTimes
         local name = wps and wps[this.index]
         if not name then return end
-        GameTooltip:SetOwner(this, "ANCHOR_TOP")
+        -- this client ignores ANCHOR_TOP and puts the tooltip at its default
+        -- spot, so it is placed by hand just above the dot
+        GameTooltip:SetOwner(this, "ANCHOR_NONE")
         GameTooltip:SetText(name, 1, 0.82, 0)
         local t = times and times[this.index]
         local elapsed = flightStartTime and (GetTime() - flightStartTime) or 0
@@ -458,6 +460,18 @@ local function trackDot(i)
             GameTooltip:AddLine(L["TRACK_ESTIMATED"] or "(stop estimated, not read from the flight map)", 0.6, 0.6, 0.6)
         end
         GameTooltip:Show()
+        GameTooltip:ClearAllPoints()
+        GameTooltip:SetPoint("BOTTOM", this, "TOP", 0, 4)
+    end)
+    -- keep it there: a UI skin may move the tooltip back to its own anchor
+    hit:SetScript("OnUpdate", function()
+        if GameTooltip:IsVisible() and GameTooltip.IsOwned and GameTooltip:IsOwned(this) then
+            local p, rel = GameTooltip:GetPoint(1)
+            if p ~= "BOTTOM" or rel ~= this then
+                GameTooltip:ClearAllPoints()
+                GameTooltip:SetPoint("BOTTOM", this, "TOP", 0, 4)
+            end
+        end
     end)
     hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
     d.hit = hit

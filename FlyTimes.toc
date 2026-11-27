@@ -1,7 +1,7 @@
 ## Interface: 11200
 ## Title: FlyTimes
 ## Notes: Shows a progress bar with remaining flight time
-## Version: 1.1.8-ev
+## Version: 1.2.1-ev
 ## Author: Kharon
 ## SavedVariables: FlyTimesDB
 
